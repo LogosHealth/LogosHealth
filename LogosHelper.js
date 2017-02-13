@@ -26,6 +26,21 @@ exports.buildResponse = function buildResponse(sessionAttributes, speechletRespo
 };
 
 /**
+ * Returns APP ID for Logos Health.
+ * @param {object} none
+ * @return {string} Context APP ID
+ * 
+ * @public
+ */
+exports.getAppID = function getAppID() {
+	console.log(' LogosHelper.buildResponse >>>>>>');
+	var appId = 'amzn1.ask.skill.43a6c098-7243-4e50-9017-d080c86eee32';
+	return appId;
+    
+};
+
+
+/**
  * Provides a speech response to Alexa using JSON format.
  * @param {object|string} Title of the Speech card
  * @param {object|string} Speech output text 
@@ -54,6 +69,20 @@ exports.buildSpeechletResponse = function buildSpeechletResponse(title, output, 
         },
         shouldEndSession,
     };
+};
+
+/**
+ * Method to create an App Link to from a new request.
+ * @param {object|string} Event
+ * @param {object|string} Context object 
+ * @param {object|string} Request
+ * @param {object|string} App ID
+ * @return {object} Applink ID once successfully created or ERROR
+ * @public
+ */
+exports.createApplink = function createApplink(event, context, request, appId) {
+  	console.log(' LogosHelper.createApplink >>>>>>');
+  	//TODO: implement code to create an App link from caller
 };
 
 /**
