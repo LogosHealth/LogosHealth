@@ -7,6 +7,7 @@
  */
 
 var aws = require('aws-sdk');
+var request = require('request');
 
 /**
  * Create a new build response.
@@ -32,9 +33,10 @@ exports.buildResponse = function buildResponse(sessionAttributes, speechletRespo
  * 
  * @public
  */
-exports.getAppID = function getAppID() {
+exports.getAppLinkName = function getAppLinkName(event) {
 	console.log(' LogosHelper.buildResponse >>>>>>');
 	var appId = 'amzn1.ask.skill.43a6c098-7243-4e50-9017-d080c86eee32';
+    appId = getAccountLinkName(event);
 	return appId;
     
 };
@@ -95,3 +97,23 @@ exports.checkClassAccess = function checkClassAccess() {
   	console.log(' LogosHelper.checkClassAccess >>>>>>');
   	return true;
 };
+
+function getAccountLinkName (event) {
+	var appName = "";
+	var amznProfileURL = 'https://api.amazon.com/user/profile?access_token=';
+    amznProfileURL += event.session.user.accessToken;
+    request(amznProfileURL, function(error, response, body) {
+        if (response.statusCode == 200) {
+             var profile = JSON.parse(body);
+             console.log('printing profile' + profile);
+             appName = profile.name.split(" ")[0];
+             console.log("LogosHelper >>>> :Hello, " + profile.name.split(" ")[0]);
+                
+         } else {
+                console.log("LogosHelper >>>> : I can't connect to Amazon Profile Service right now, try again later");
+                appName = 'NO_ID';
+                
+         }
+     });
+     
+}

@@ -49,8 +49,19 @@ exports.getAllUserAccounts = function getAllUserAccounts() {
  * @public
  */
 exports.checkClassAccess = function checkClassAccess() {
-  console.log(' DBUtils.checkClassAccess >>>>>>');
+  console.log(' DBUtils.checkClassAccess new >>>>>>');
   return true;
+};
+
+/**
+ * Debugs class instantiation.
+ * @param {none} 
+ * @return {boolean} Function could be called
+ * @public
+ */
+exports.verifyUserProfile = function verifyUserProfile(usrName) {
+  console.log(' DBUtils.verifyUserProfile >>>>>>');
+  return getUserProfileByName(usrName);
 };
 
 function getLogosConnection() {
@@ -85,24 +96,24 @@ function loadUserAccounts() {
     return accountsArr;
 }
 
-function verifyUserProfile(userId, appId) {
+function getUserProfileByName(userName) {
 	var connection = getLogosConnection();
-	var profileArr = [];
-	connection.query('SELECT * FROM logoshealth.Profile where profileid = 1 and accountid = 2', function (error, results, fields) {
+	var profileName = "";
+	connection.query('SELECT firstname FROM logoshealth.Profile where profileid=1 and accountid = 2', function (error, results, fields) {
         if (error) {
             console.log('The Error is: ', error);
         } else {
             if (results !== null && results.length > 0) {
                 for (var res in results) {
                     console.log('Row is : ', results[res]);
-                    profileArr.push(results[res]);
+                    profileName = results[res].firstname;
                 }
             }
             connection.end();
         }
     });
     
-    return profileArr;
+    return profileName;
 }
 
 function closeConnection(connection) {
