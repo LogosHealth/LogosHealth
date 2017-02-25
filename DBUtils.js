@@ -138,7 +138,7 @@ function getUserProfileByName(userName, accountId, session, callback) {
 	var connection = getLogosConnection();
 	var hasProfile = false;
 	console.log("DBUtil.getUserProfileByName - Initiating SQL call ");
-	connection.query("SELECT * FROM logoshealth.profile where firstname = '"+userName+ "' and accountid = '"+accountId+"'", function (error, results, fields) {
+	connection.query("SELECT * FROM logoshealth.profile where logosname = '"+userName+ "' and accountid = '"+accountId+"'", function (error, results, fields) {
         if (error) {
             console.log('The Error is: ', error);
         } else {

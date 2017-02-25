@@ -243,7 +243,7 @@ function processIntent(event, context, intentRequest, session, callback) {
 	    //quitRequest(intent, session, callback);  
     }
     else {
-        //throw "Invalid intent";
+        //could be user saying something out of a custom intent, process based on Current processor
         processUserInteraction(event, intent, session, callback);
     }
 }
@@ -388,4 +388,6 @@ function handleOpenLogosHealthProfile (event, context, intent, session, callback
 
     callback(sessionAttributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 }
+
+
 
