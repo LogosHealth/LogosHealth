@@ -51,7 +51,7 @@ exports.getAppLinkName = function getAppLinkName(event) {
  */
 exports.processNameIntent = function processNameIntent(userName, hasProfile, session, callback) {
 	console.log(' LogosHelper.processNameIntent >>>>>>');
-    processUserNameInput(userName, hasProfile, session, callback);
+    processNameIntentResponse(userName, hasProfile, session, callback);
 };
 
 /**
@@ -131,7 +131,7 @@ exports.checkClassAccess = function checkClassAccess() {
  */
 exports.displayWelcomeMsg = function displayWelcomeMsg(accountid, session, callback) {
   	console.log(' LogosHelper.checkClassAccess >>>>>>'+accountid);
-  	getWelcomeResponse(accountid, session, callback);
+  	processWelcomeResponse(accountid, session, callback);
 };
 
 exports.displayUnknownIntent = function displayUnknownIntent(accountid, session, callback) {
@@ -154,24 +154,22 @@ exports.processUserReponse = function processUserReponse(event, context, intent,
   	processIntent(event, context, intent, session, callback);
 };
 
-function getAccountLinkName (event) {
-	var appName = "";
+function getLinkedAccountEmail(event, request, session, accountId, callback) {
+    console.log(" Getting Account Linked Email ");
+	
 	var amznProfileURL = 'https://api.amazon.com/user/profile?access_token=';
     amznProfileURL += event.session.user.accessToken;
+    
     request(amznProfileURL, function(error, response, body) {
-        if (response.statusCode == 200) {
-             var profile = JSON.parse(body);
-             console.log('printing profile' + profile);
-             appName = profile.name.split(" ")[0];
-             console.log("LogosHelper >>>> :Hello, " + profile.name.split(" ")[0]);
-                
-         } else {
-                console.log("LogosHelper >>>> : I can't connect to Amazon Profile Service right now, try again later");
-                appName = 'NO_ID';
-                
-         }
-     });
-     
+ 	    var respBody = "";
+ 	    if (!error && response.statusCode == 200) {
+    	    respBody = JSON.parse(body);
+    	    console.log('Email from Amazon: ' + respBody.email);
+	    } else {
+	    	console.log('Email read Error: ' + error);
+	    }
+	    dbUtil.getAccountIdFromEmail(respBody.email, session, callback);
+	});
 }
 
 function displayUnknownContext(accountid, session, callback ) {
@@ -218,16 +216,17 @@ function processIntent(event, context, intentRequest, session, callback) {
     
     var sessionAttributes = session.attributes; 
     var accountId = sessionAttributes.applicationAccId;
- 
-    // dispatch custom intents to handlers here
-    if (intentName == 'NameIntent') {
-    	var name = "";
-    	if (intent.slots) {
-    		name = intent.slots.Name.value;
-    	}
     
-    	console.log(' processIntent: Intent  called >>>>>>  '+intentName+' the slot value is >>>>> '+name);
-        dbUtil.verifyUserProfile(name, accountId, session, callback);
+    var slotValue = "";
+    if (intentName === 'LaunchIntent') {
+    	//Process Generic values if selected from existing
+    	slotValue = intent.slots.Generic.value;
+    	console.log(' processIntent: Intent  called >>>>>>  '+intentName+' the slot value is >>>>> '+slotValue);
+    	processUserGenericInteraction(event, intent, session, callback);
+    }else if (intentName == 'NameIntent') {
+    	slotValue = intent.slots.Name.value;
+    	console.log(' processIntent: Intent  called >>>>>>  '+intentName+' the slot value is >>>>> '+slotValue);
+        dbUtil.verifyUserProfile(slotValue, accountId, session, callback);
     } 
      else if (intentName == 'OpenLogosHealthProfile') {
         handleOpenLogosHealthProfile(event, context,intent, session, callback);
@@ -244,12 +243,12 @@ function processIntent(event, context, intentRequest, session, callback) {
     }
     else {
         //could be user saying something out of a custom intent, process based on Current processor
-        processUserInteraction(event, intent, session, callback);
+        processUserGenericInteraction(event, intent, session, callback);
     }
 }
 
-function getWelcomeResponse(accountid, session, callback ) {
-    console.log(' LogosHelper.getWelcomeResponse >>>>>>'+accountid);
+function processWelcomeResponse(accountid, session, callback ) {
+    console.log(' LogosHelper.processWelcomeResponse >>>>>>'+accountid);
     // If we wanted to initialize the session to have some attributes we could add those here.
     var sessionAttributes = {
     		'currentProcessor':'0',
@@ -269,7 +268,7 @@ function getWelcomeResponse(accountid, session, callback ) {
 
 }
 
-function processUserNameInput(userName, hasProfile, session, callback) {
+function processNameIntentResponse(userName, hasProfile, session, callback) {
     // User Name has been processed
     console.log(' LogosHelper:processUserNameInput >>>>>>');
     
@@ -311,7 +310,7 @@ function handleSessionEndRequest(callback) {
     callback({}, buildSpeechResponse(cardTitle, speechOutput, null, shouldEndSession));
 }
 
-function processUserInteraction (event, intent, session, callback) {
+function processUserGenericInteraction (event, intent, session, callback) {
     //TODO: Implementation
     console.log(' LogosHelper.processUserInteraction >>>>>>');
     //set session attributes
@@ -320,29 +319,9 @@ function processUserInteraction (event, intent, session, callback) {
     
     var cardTitle = 'Open Profile';
 
-    var speechOutput = '';
+    var speechOutput = 'Sorry, Couldnt get your response. Please say help to hear menu options';
 
-    var repromptText = 'Interaction';
-    var shouldEndSession = false;
-    
-    //TODO: Implement Create Profile DB logic here
-    
-    callback(sessionAttributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
-}
-
-function handleNameIntent(event, context, name, session, callback) {
-
-    //set session attributes
-    var sessionAttributes = session.attributes;
-    sessionAttributes.currentProcessor = '1';
-    
-    console.log(" The session attribute to handleNameIntent >>>>> "+sessionAttributes);
-    
-    var cardTitle = 'User Name';
-
-    var speechOutput = 'Hello ' + name + ', How are you today?", " How can I help you today?';
-
-    var repromptText = 'Avaialable Options';
+    var repromptText = 'Unknown context';
     var shouldEndSession = false;
     
     callback(sessionAttributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));

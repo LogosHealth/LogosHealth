@@ -31,7 +31,7 @@ function accountEmail(event, request, session, accountId, callback) {
 	    }
 	    accountId(error,respBody, session, callback);
 	});
-};
+}
 
 
 function handleSessionEndRequest(callback) {
