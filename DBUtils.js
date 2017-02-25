@@ -7,6 +7,7 @@
 
 //global variables
 var mysql = require('mysql');
+var helper = require('./LogosHelper');
 
 /**
  * Create a new Connection instance.
@@ -29,6 +30,17 @@ exports.closeDBConnection = function closeDBConnection(connection) {
   console.log(' DBUtils.closeDBConnection >>>>>>');
   closeConnection();
   return true;
+};
+
+/**
+ * Closes an existing connection.
+ * @param {object|string} an active connection object
+ * @return {boolean} Whether connection is closed or not
+ * @public
+ */
+exports.getAccountIdFromEmail = function getAccountIdFromEmail(email, session, callback) {
+  console.log(' DBUtils.getAccountIdFromEmail >>>>>>');
+  loadAccountIDFromEmail(email, session, callback);
 };
 
 /**
@@ -59,9 +71,9 @@ exports.checkClassAccess = function checkClassAccess() {
  * @return {boolean} Function could be called
  * @public
  */
-exports.verifyUserProfile = function verifyUserProfile(usrName) {
+exports.verifyUserProfile = function verifyUserProfile(usrName, accountId, session, callback) {
   console.log(' DBUtils.verifyUserProfile >>>>>>');
-  return getUserProfileByName(usrName);
+  return getUserProfileByName(usrName, accountId, session, callback);
 };
 
 function getLogosConnection() {
@@ -96,24 +108,47 @@ function loadUserAccounts() {
     return accountsArr;
 }
 
-function getUserProfileByName(userName) {
+function loadAccountIDFromEmail(email, session, callback) {
+	console.log("DBUtil.getAccountFromEmail called with param >>>>> "+email);
 	var connection = getLogosConnection();
-	var profileName = "";
-	connection.query('SELECT firstname FROM logoshealth.Profile where profileid=1 and accountid = 2', function (error, results, fields) {
+	var accountid = "";
+	connection.query("SELECT accountid FROM logoshealth.Account where email = '"+ email + "'" , function (error, results, fields) {
         if (error) {
             console.log('The Error is: ', error);
         } else {
             if (results !== null && results.length > 0) {
                 for (var res in results) {
-                    console.log('Row is : ', results[res]);
-                    profileName = results[res].firstname;
+                    console.log('DBUtils - Email found from account table >>>> : ', results[res]);
+                    accountid = results[res].accountid;
+                    helper.displayWelcomeMsg(accountid, session, callback);
+				    console.log('DBUtils - AccountID from email inside loop>>> : ', accountid);
                 }
             }
             connection.end();
         }
     });
     
-    return profileName;
+    console.log('DBUtils - AccountID from email outside of loop near return>>> : ', accountid);
+    return accountid;
+}
+
+function getUserProfileByName(userName, accountId, session, callback) {
+    console.log("DBUtil.getUserProfileByName called with param >>>>> "+userName+" and "+accountId);
+    
+	var connection = getLogosConnection();
+	var hasProfile = false;
+	console.log("DBUtil.getUserProfileByName - Initiating SQL call ");
+	connection.query("SELECT * FROM logoshealth.profile where firstname = '"+userName+ "' and accountid = '"+accountId+"'", function (error, results, fields) {
+        if (error) {
+            console.log('The Error is: ', error);
+        } else {
+            if (results !== null && results.length > 0) {
+                hasProfile = true;
+            }
+            connection.end();
+            helper.processNameIntent(userName, hasProfile, session, callback);
+        }
+    });
 }
 
 function closeConnection(connection) {
