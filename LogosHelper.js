@@ -220,15 +220,16 @@ function processIntent(event, context, intentRequest, session, callback) {
     var slotValue = "";
     if (intentName === 'LaunchIntent') {
     	//Process Generic values if selected from existing
-    	slotValue = intent.slots.Generic.value;
+    	slotValue = intent.slots.Answer.value;
     	console.log(' processIntent: Intent  called >>>>>>  '+intentName+' the slot value is >>>>> '+slotValue);
     	processUserGenericInteraction(event, intent, session, callback);
-    }else if (intentName == 'NameIntent') {
+    }
+    else if (intentName == 'NameIntent') {
     	slotValue = intent.slots.Name.value;
     	console.log(' processIntent: Intent  called >>>>>>  '+intentName+' the slot value is >>>>> '+slotValue);
         dbUtil.verifyUserProfile(slotValue, accountId, session, callback);
     } 
-     else if (intentName == 'OpenLogosHealthProfile') {
+    else if (intentName == 'OpenLogosHealthProfile') {
         handleOpenLogosHealthProfile(event, context,intent, session, callback);
     }    
     else if (intentName == 'CreateLogosHealthProfile') {   
@@ -241,18 +242,27 @@ function processIntent(event, context, intentRequest, session, callback) {
     else if (intentName == 'AMAZON.CancelIntent')  {        
 	    //quitRequest(intent, session, callback);  
     }
+    else if (intentName == 'AnswerIntent')  {        
+	    slotValue = intent.slots.Answer.value;
+    	console.log(' processIntent: Intent  called >>>>>>  '+intentName+' the slot value is >>>>> '+slotValue);
+        processAnswerIntent(event, slotValue, accountId, session, callback); 
+    }
     else {
         //could be user saying something out of a custom intent, process based on Current processor
-        processUserGenericInteraction(event, intent, session, callback);
+        //processUserGenericInteraction(event, intent, session, callback);
     }
 }
 
 function processWelcomeResponse(accountid, session, callback ) {
     console.log(' LogosHelper.processWelcomeResponse >>>>>>'+accountid);
     // If we wanted to initialize the session to have some attributes we could add those here.
-    var sessionAttributes = {
-    		'currentProcessor':'0',
-    		'applicationAccId':accountid
+    
+    sessionAttributes = {
+    		'currentProcessor':1,
+    		'applicationAccId':accountid,
+    		'userFirstName': '',
+    		'userHasProfile':false,
+    		'qnaObjArr':''
     };
     
 	session.attributes = sessionAttributes;
@@ -274,24 +284,17 @@ function processNameIntentResponse(userName, hasProfile, session, callback) {
     
     //set session attributes
     var sessionAttributes = session.attributes;
-    var accountId = sessionAttributes.applicationAccId;
-    
-    sessionAttributes = {
-    		'currentProcessor':'1',
-    		'applicationAccId':accountId,
-    		'userFirstName': userName,
-    		'userHasProfile':hasProfile
-    };
-    
-    
+     sessionAttributes.userFirstName = userName;
     var cardTitle = 'User Profile';
     
     var speechOutput = "";
     
     if (hasProfile) {
-    	speechOutput = "How can I help you today "+userName;
+    	speechOutput = 'Welcome back '+userName+ '. "," How can I help you today?';
+    	sessionAttributes.currentProcessor = 5;
     } else {
     	speechOutput = 'Hello '+userName+ ' , No profile found with your name on your Account. "," Would you like to create one?';
+    	sessionAttributes.currentProcessor = 2;
     }
 
     var repromptText = 'Say Create Profile';
@@ -299,6 +302,91 @@ function processNameIntentResponse(userName, hasProfile, session, callback) {
     
     callback(sessionAttributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 
+}
+
+function processAnswerIntent(event, slotValue, accountId, session, callback) {
+    // User Name has been processed
+    console.log(' LogosHelper:processAnswerIntent >>>>>>');
+    var qnaObj = [];
+    //set session attributes
+    var sessionAttributes = session.attributes;
+    var currentProcessor = sessionAttributes.currentProcessor;
+    console.log(' LogosHelper:processAnswerIntent >>>>>>'+currentProcessor);
+    
+    switch(currentProcessor) {
+    case 1:
+        dbUtil.verifyUserProfile(slotValue, accountId, session, callback);
+        break;
+    case 2:
+       //Create Profile QnA
+        qnaObj = getSortedQNAObject("","asc");
+        executeCreateProfileQNA(slotValue, qnaObj, session, callback);
+        break;
+    case 3:
+       //Continue profile QnA until completes
+        qnaObj = sessionAttributes.qnaObjArr;
+        executeCreateProfileQNA(slotValue, qnaObj, session, callback);
+        break;
+    default:
+         processUserGenericInteraction (session, callback);
+	}
+
+}
+
+function processAnswerResponse(slotValue, accountId, session, callback, qnaObj) {
+    // User Name has been processed
+    console.log(' LogosHelper:processAnswerResponse >>>>>>');
+    
+    //set session attributes
+    var sessionAttributes = session.attributes;
+    var accountId = sessionAttributes.applicationAccId;
+    var currentProcessor = sessionAttributes.currentProcessor;
+    sessionAttributes.QnAObjArr = qnaObj;
+    sessionAttributes.currentProcessor = 4;
+    
+    var cardTitle = 'QNA Session';
+    var newQuestion = "";
+    
+    var speechOutput = "";
+    
+    if (hasProfile) {
+    	speechOutput = newQuestion;
+    } 
+
+    var repromptText = 'Say Save or Options';
+    var shouldEndSession = false;
+    
+    callback(sessionAttributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
+
+}
+
+function getSortedQNAObject(QnAObjArr, sortKey) {
+	 console.log(' LogosHelper:getSortedQNAObject >>>>>>');
+	 QnAObjArr = [
+    	{
+        	"question_seq": 2,
+        	"Question": "What is your age in number?",
+        	"Answer": "",
+        	"processed": false
+    	}, {
+        	"question_seq": 3,
+        	"Question": "Are you employed?",
+        	"Answer": "",
+        	"processed": false
+    	}, {
+        	"question_seq": 1,
+        	"Question": "What is your Gender?",
+        	"Answer": "",
+        	"processed": false
+    	}
+	];
+	
+	//sort in ascending order
+	QnAObjArr.sort(function(a, b) {
+    	return parseInt(a.question_seq) - parseInt(b.question_seq);
+	});
+	console.log(' LogosHelper:getSortedQNAObject >>>>>>'+QnAObjArr.toString());
+	return QnAObjArr;
 }
 
 function handleSessionEndRequest(callback) {
@@ -310,7 +398,7 @@ function handleSessionEndRequest(callback) {
     callback({}, buildSpeechResponse(cardTitle, speechOutput, null, shouldEndSession));
 }
 
-function processUserGenericInteraction (event, intent, session, callback) {
+function processUserGenericInteraction (session, callback) {
     //TODO: Implementation
     console.log(' LogosHelper.processUserInteraction >>>>>>');
     //set session attributes
@@ -324,6 +412,46 @@ function processUserGenericInteraction (event, intent, session, callback) {
     var repromptText = 'Unknown context';
     var shouldEndSession = false;
     
+    callback(sessionAttributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
+}
+
+function executeCreateProfileQNA (slotValue, qnaObj, session, callback) {
+    console.log(' LogosHelper.executeCreateProfileQNA >>>>>>');
+    
+    var speechOutput = 'Thank you for your profile information. Saving profile.';
+    //set session attributes
+    var sessionAttributes = session.attributes;
+    var isComplete = true;
+    
+    for (var obj in qnaObj) {
+    	var tempObj = qnaObj[obj];
+    	if (!tempObj.processed) {
+    		speechOutput = tempObj.Question;
+    		isComplete = false;
+    		tempObj.processed = true;
+    		break;
+    	} else {
+    		if (tempObj.Answer == '') {
+    			tempObj.Answer = slotValue;
+    			isComplete = false;
+    		}
+    		continue;
+    	}
+    }
+    
+    if (isComplete) {
+    	//Profile Create QnA is completed, save this to database
+    } else {
+    
+    	sessionAttributes.qnaObjArr = qnaObj;
+    	sessionAttributes.currentProcessor = 3;
+    }
+    
+    var cardTitle = 'Profile QNA';
+
+    var repromptText = 'Say Save Profile';
+    var shouldEndSession = false;
+  
     callback(sessionAttributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 }
 

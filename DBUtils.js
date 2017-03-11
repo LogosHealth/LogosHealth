@@ -76,6 +76,23 @@ exports.verifyUserProfile = function verifyUserProfile(usrName, accountId, sessi
   return getUserProfileByName(usrName, accountId, session, callback);
 };
 
+/**
+ * @public name is getScriptDetails
+ * @VG 2/26 | Pass the script as the param to get all possible questions
+ */
+exports.getScriptDetails = function getScriptDetails(script, session, callback) {
+  console.log(' DBUtils.getScriptDetails >>>>>>' +script);
+  return getScriptDetails(script, session, callback);
+};
+/**
+ * @public
+ * @VG 2/28 | Expects session information as a user response passed here to create a profile
+ */
+exports.setProfileDetails = function setProfileDetails(accountid, event, session, callback){
+  console.log(' DBUtils.setProfileDetails >>>>>>');
+  setProfileDetails(accountid, event, session, callback);
+};
+
 function getLogosConnection() {
 	console.log(' DBUtils.getLogosConnection >>>>>>');
 	var connection = mysql.createConnection({
