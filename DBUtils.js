@@ -80,10 +80,11 @@ exports.verifyUserProfile = function verifyUserProfile(usrName, accountId, sessi
  * @public name is getScriptDetails
  * @VG 2/26 | Pass the script as the param to get all possible questions
  */
-exports.getScriptDetails = function getScriptDetails(script, session, callback) {
-  console.log(' DBUtils.getScriptDetails >>>>>>' +script);
-  return getScriptDetails(script, session, callback);
+exports.readQuestsionsForBranch = function readQuestsionsForBranch(scriptName, slotValue, session, callback) {
+  console.log(' DBUtils.readQuestsionsForBranch >>>>>>' +scriptName);
+  return getScriptDetails(scriptName, slotValue, session, callback);
 };
+
 /**
  * @public
  * @VG 2/28 | Expects session information as a user response passed here to create a profile
@@ -92,6 +93,82 @@ exports.setProfileDetails = function setProfileDetails(accountid, event, session
   console.log(' DBUtils.setProfileDetails >>>>>>');
   setProfileDetails(accountid, event, session, callback);
 };
+
+//VG 2/25|Purpose: Insert a new Account Information in DB
+function createNewAccountIDFromEmail(vEmail, session, callback, connection)
+{
+	var accountRec = ''; //{email:vEmail, password:'vgtiger',createdby:'1',modifiedby:'1'};
+	connection.query('Insert into logoshealth.Account Set ?',accountRec, function (error, results, fields) {
+	if (error) {
+            console.log('The Error is: ', error);
+        } else {
+			console.log('The record seems inserted successfully and now calling LoadAccountIDFromEmail again!!');
+			loadAccountIDFromEmail(vEmail, session, callback); //Semi-Recursive call. New buzzword from VG.
+		}
+		});
+}
+
+
+//VG 2/26|Purpose: To pull script based questions for Alexa Madam
+function getScriptDetails(scriptName, slotValue, session, callback)
+{
+	console.log("DBUtil.getScriptDetails called with param >>>>> " +scriptName);
+	var connection = getLogosConnection();
+	connection.query("SELECT q.* FROM logoshealth.script s, logoshealth.question q where s.questionid=q.questionid and scriptname='"+scriptName+"' order by questionid asc", function (error, results, fields) {
+	var QnAObjArr = [];
+	var qnaObj;
+	
+	if (error) {
+            console.log('DBUtils.getScriptDetails Error. the Error is: ', error);
+        } else {
+            if (results !== null && results.length > 0) {
+                
+                /*
+                for (var res in results) {
+                    console.log('DBUtils - Script found from Script/Question Tables >>>> : ', results[res].question);
+                    question = results[res].question;
+                    helper.displayWelcomeMsg(question, session, callback);
+				    console.log('DBUtils - AccountID from email inside loop>>> : ', question);
+                }
+                */
+                for (var res in results) {
+                	qnaObj = {
+                		"questionId": results[res].questionid,
+        				"question": results[res].question,
+        				"answer": "",
+        				"processed": false,
+        				"scriptname":scriptName
+                	}
+                	QnAObjArr.push(qnaObj);
+                }
+                
+                console.log('DBUtils.getScriptDetails The QnAObjArra Sie: ', QnAObjArr.length);
+                
+			}
+		}
+		closeConnection(connection); //all is done so releasing the resources
+		//callback response with QnA object array
+		helper.processQnAResponse(slotValue, QnAObjArr, session, callback);
+	});
+}
+
+//VG 2/28|Purpose: Read the answers and Insert/Update the Profile 
+function setProfileDetails(accountid, event, session, callback)
+{
+	console.log("DBUtil.setProfileDetails for >>>>> "+accountid);
+    var vFName=session.sessionAttributes.userFirstName;
+	var vLName=session.sessionAttributes.userLastName;
+	var vLogosName=session.sessionAttributes.userLogosName;
+	
+	var accountRec = ''; //{accountid:accountid, firstname:vFName, lastname:vLName, logosname:vLogosName, createdby:'1',modifiedby:'1'};
+	connection.query('Insert into logoshealth.Profile Set ?',accountRec, function (error, results, fields) {
+	if (error) {
+            console.log('The Error is: ', error);
+        } else {
+			console.log('The record inserted successfully into Profile Table!!');
+		}
+		});
+}
 
 function getLogosConnection() {
 	console.log(' DBUtils.getLogosConnection >>>>>>');
@@ -154,6 +231,8 @@ function getUserProfileByName(userName, accountId, session, callback) {
     
 	var connection = getLogosConnection();
 	var hasProfile = false;
+	var profileComplete = false;
+	var profileId;
 	console.log("DBUtil.getUserProfileByName - Initiating SQL call ");
 	connection.query("SELECT * FROM logoshealth.profile where logosname = '"+userName+ "' and accountid = '"+accountId+"'", function (error, results, fields) {
         if (error) {
@@ -161,9 +240,10 @@ function getUserProfileByName(userName, accountId, session, callback) {
         } else {
             if (results !== null && results.length > 0) {
                 hasProfile = true;
+                profileId = results.profileid;
             }
             connection.end();
-            helper.processNameIntent(userName, hasProfile, session, callback);
+            helper.processNameIntent(userName, profileId, hasProfile, profileComplete, session, callback);
         }
     });
 }

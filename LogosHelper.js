@@ -49,9 +49,9 @@ exports.getAppLinkName = function getAppLinkName(event) {
  * 
  * @public
  */
-exports.processNameIntent = function processNameIntent(userName, hasProfile, session, callback) {
+exports.processNameIntent = function processNameIntent(userName, profileId, hasProfile, profileComplete, session, callback) {
 	console.log(' LogosHelper.processNameIntent >>>>>>');
-    processNameIntentResponse(userName, hasProfile, session, callback);
+    processNameIntentResponse(userName, profileId, hasProfile, profileComplete, session, callback);
 };
 
 /**
@@ -152,6 +152,11 @@ exports.openProfile = function openProfile(event, context, intent, session, call
 exports.processUserReponse = function processUserReponse(event, context, intent, session, callback) {
   	console.log(' LogosHelper.processUserReponse >>>>>>');
   	processIntent(event, context, intent, session, callback);
+};
+
+exports.processQnAResponse = function processQnAResponse(slotValue, qnaObj, session, callback) {
+  	console.log(' LogosHelper.processQnAResponse >>>>>>');
+  	executeCreateProfileQNA(slotValue, qnaObj, session, callback);
 };
 
 function getLinkedAccountEmail(event, request, session, accountId, callback) {
@@ -260,8 +265,10 @@ function processWelcomeResponse(accountid, session, callback ) {
     sessionAttributes = {
     		'currentProcessor':1,
     		'applicationAccId':accountid,
+    		'profileId': 0,
     		'userFirstName': '',
     		'userHasProfile':false,
+    		'profileComplete': false,
     		'qnaObjArr':''
     };
     
@@ -278,13 +285,15 @@ function processWelcomeResponse(accountid, session, callback ) {
 
 }
 
-function processNameIntentResponse(userName, hasProfile, session, callback) {
+function processNameIntentResponse(userName, profileId, hasProfile, profileComplete, session, callback) {
     // User Name has been processed
     console.log(' LogosHelper:processUserNameInput >>>>>>');
     
     //set session attributes
     var sessionAttributes = session.attributes;
-     sessionAttributes.userFirstName = userName;
+    sessionAttributes.userFirstName = userName;
+    sessionAttributes.profileId = profileId;
+    sessionAttributes.profileComplete = profileComplete;
     var cardTitle = 'User Profile';
     
     var speechOutput = "";
@@ -319,8 +328,8 @@ function processAnswerIntent(event, slotValue, accountId, session, callback) {
         break;
     case 2:
        //Create Profile QnA
-        qnaObj = getSortedQNAObject("","asc");
-        executeCreateProfileQNA(slotValue, qnaObj, session, callback);
+       var scriptName = "Create a New Primary Profile";
+        dbUtil.readQuestsionsForBranch(scriptName, slotValue, session, callback);
         break;
     case 3:
        //Continue profile QnA until completes
@@ -333,35 +342,10 @@ function processAnswerIntent(event, slotValue, accountId, session, callback) {
 
 }
 
-function processAnswerResponse(slotValue, accountId, session, callback, qnaObj) {
-    // User Name has been processed
-    console.log(' LogosHelper:processAnswerResponse >>>>>>');
-    
-    //set session attributes
-    var sessionAttributes = session.attributes;
-    var accountId = sessionAttributes.applicationAccId;
-    var currentProcessor = sessionAttributes.currentProcessor;
-    sessionAttributes.QnAObjArr = qnaObj;
-    sessionAttributes.currentProcessor = 4;
-    
-    var cardTitle = 'QNA Session';
-    var newQuestion = "";
-    
-    var speechOutput = "";
-    
-    if (hasProfile) {
-    	speechOutput = newQuestion;
-    } 
-
-    var repromptText = 'Say Save or Options';
-    var shouldEndSession = false;
-    
-    callback(sessionAttributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
-
-}
-
 function getSortedQNAObject(QnAObjArr, sortKey) {
 	 console.log(' LogosHelper:getSortedQNAObject >>>>>>');
+	 
+	 /*
 	 QnAObjArr = [
     	{
         	"question_seq": 2,
@@ -381,11 +365,13 @@ function getSortedQNAObject(QnAObjArr, sortKey) {
     	}
 	];
 	
+	*/
+	
 	//sort in ascending order
 	QnAObjArr.sort(function(a, b) {
-    	return parseInt(a.question_seq) - parseInt(b.question_seq);
+    	return parseInt(a.questionId) - parseInt(b.questionId);
 	});
-	console.log(' LogosHelper:getSortedQNAObject >>>>>>'+QnAObjArr.toString());
+	
 	return QnAObjArr;
 }
 
@@ -415,24 +401,27 @@ function processUserGenericInteraction (session, callback) {
     callback(sessionAttributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 }
 
-function executeCreateProfileQNA (slotValue, qnaObj, session, callback) {
+function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     console.log(' LogosHelper.executeCreateProfileQNA >>>>>>');
+    
+    var qnObj = getSortedQNAObject(qnaObj,"asc");
     
     var speechOutput = 'Thank you for your profile information. Saving profile.';
     //set session attributes
     var sessionAttributes = session.attributes;
     var isComplete = true;
     
-    for (var obj in qnaObj) {
-    	var tempObj = qnaObj[obj];
+    for (var obj in qnObj) {
+    	var tempObj = qnObj[obj];
     	if (!tempObj.processed) {
-    		speechOutput = tempObj.Question;
+    		speechOutput = tempObj.question;
     		isComplete = false;
     		tempObj.processed = true;
     		break;
     	} else {
-    		if (tempObj.Answer == '') {
-    			tempObj.Answer = slotValue;
+    		if (tempObj.answer == '') {
+    			tempObj.answer = slotValue;
+    			//make DB call here every time  -- 
     			isComplete = false;
     		}
     		continue;
@@ -440,10 +429,10 @@ function executeCreateProfileQNA (slotValue, qnaObj, session, callback) {
     }
     
     if (isComplete) {
-    	//Profile Create QnA is completed, save this to database
+    	//Profile Create QnA is completed, save this to database  - not required
     } else {
     
-    	sessionAttributes.qnaObjArr = qnaObj;
+    	sessionAttributes.qnaObjArr = qnObj;
     	sessionAttributes.currentProcessor = 3;
     }
     
