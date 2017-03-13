@@ -266,7 +266,7 @@ function processWelcomeResponse(accountid, session, callback ) {
     		'currentProcessor':1,
     		'applicationAccId':accountid,
     		'profileId': 0,
-    		'userFirstName': '',
+    		'logosName': '',
     		'userHasProfile':false,
     		'profileComplete': false,
     		'qnaObjArr':''
@@ -291,7 +291,7 @@ function processNameIntentResponse(userName, profileId, hasProfile, profileCompl
     
     //set session attributes
     var sessionAttributes = session.attributes;
-    sessionAttributes.userFirstName = userName;
+    sessionAttributes.logosName = userName;
     sessionAttributes.profileId = profileId;
     sessionAttributes.profileComplete = profileComplete;
     var cardTitle = 'User Profile';
@@ -409,12 +409,19 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     var speechOutput = 'Thank you for your profile information. Saving profile.';
     //set session attributes
     var sessionAttributes = session.attributes;
+    var logosName = sessionAttributes.logosName;
     var isComplete = true;
     
     for (var obj in qnObj) {
     	var tempObj = qnObj[obj];
     	if (!tempObj.processed) {
-    		speechOutput = tempObj.question;
+    		var quest = tempObj.question;
+    		if (quest.indexOf("[name]") != -1) {
+    			console.log(' LogosHelper.executeCreateProfileQNA >>>>>>: Question has [name] tag, replacing with logos name '+logosName);
+    			quest = quest.replace("[name]", logosName);
+    		}
+    		console.log('LogosHelper.executeCreateProfileQNA : Question is >>>>>>: '+quest);
+    		speechOutput = quest;
     		isComplete = false;
     		tempObj.processed = true;
     		break;
