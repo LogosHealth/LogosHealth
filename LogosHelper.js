@@ -189,7 +189,7 @@ function displayUnknownContext(accountid, session, callback ) {
     var repromptText = 'What can I help you with?';
     var shouldEndSession = false;
     
-    callback(sessionAttributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
+    callback(session.attributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 }
 
 function buildSpeechResponse(title, output, repromptText, shouldEndSession) {
@@ -220,7 +220,7 @@ function processIntent(event, context, intentRequest, session, callback) {
     var intentName = intentRequest.intent.name;
     
     var sessionAttributes = session.attributes; 
-    var accountId = sessionAttributes.applicationAccId;
+    var accountId = sessionAttributes.accountId;
     
     var slotValue = "";
     if (intentName === 'LaunchIntent') {
@@ -262,11 +262,11 @@ function processWelcomeResponse(accountid, session, callback ) {
     console.log(' LogosHelper.processWelcomeResponse >>>>>>'+accountid);
     // If we wanted to initialize the session to have some attributes we could add those here.
     
-    sessionAttributes = {
+    var sessionAttributes = {
     		'currentProcessor':1,
-    		'applicationAccId':accountid,
-    		'profileId': 0,
-    		'logosName': '',
+    		'userAccId':accountid,
+    		'userProfileId':'',
+    		'logosName':'',
     		'userHasProfile':false,
     		'profileComplete': false,
     		'qnaObjArr':''
@@ -281,7 +281,7 @@ function processWelcomeResponse(accountid, session, callback ) {
     var repromptText = 'Please provide your first name';
     var shouldEndSession = false;
     
-    callback(sessionAttributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
+    callback(session.attributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 
 }
 
@@ -289,27 +289,37 @@ function processNameIntentResponse(userName, profileId, hasProfile, profileCompl
     // User Name has been processed
     console.log(' LogosHelper:processUserNameInput >>>>>>');
     
-    //set session attributes
-    var sessionAttributes = session.attributes;
-    sessionAttributes.logosName = userName;
-    sessionAttributes.profileId = profileId;
-    sessionAttributes.profileComplete = profileComplete;
+    var qnaObj = [];
+    var processor = 0;
     var cardTitle = 'User Profile';
-    
     var speechOutput = "";
+    var accountId = session.attributes.userAccId;
     
     if (hasProfile) {
     	speechOutput = 'Welcome back '+userName+ '. "," How can I help you today?';
-    	sessionAttributes.currentProcessor = 5;
+    	processor = 5;
     } else {
     	speechOutput = 'Hello '+userName+ ' , No profile found with your name on your Account. "," Would you like to create one?';
-    	sessionAttributes.currentProcessor = 2;
+    	processor = 2;
     }
+    
+    //set session attributes
+    var sessionAttributes = {
+    		'currentProcessor':processor,
+    		'userAccId':accountId,
+    		'userProfileId':profileId,
+    		'logosName':userName,
+    		'userHasProfile':hasProfile,
+    		'profileComplete': profileComplete,
+    		'qnaObjArr':qnaObj
+    };
 
     var repromptText = 'Say Create Profile';
     var shouldEndSession = false;
+    session.attributes = sessionAttributes;
+    console.log(' LogosHelper:processUserNameInput >>>>>> Session Attributes '+session.attributes.logosName+' , '+session.attributes.userProfileId+' , '+session.attributes.profileComplete+' , '+session.attributes.userAccId);
     
-    callback(sessionAttributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
+    callback(session.attributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 
 }
 
@@ -328,7 +338,7 @@ function processAnswerIntent(event, slotValue, accountId, session, callback) {
         break;
     case 2:
        //Create Profile QnA
-       var scriptName = "Create a New Primary Profile";
+        var scriptName = "Create a New Primary Profile";
         dbUtil.readQuestsionsForBranch(scriptName, slotValue, session, callback);
         break;
     case 3:
@@ -336,8 +346,11 @@ function processAnswerIntent(event, slotValue, accountId, session, callback) {
         qnaObj = sessionAttributes.qnaObjArr;
         executeCreateProfileQNA(slotValue, qnaObj, session, callback);
         break;
+    case 3:
+       	processUserGenericInteraction (session, callback);
+        break;
     default:
-         processUserGenericInteraction (session, callback);
+        processUserGenericInteraction (session, callback);
 	}
 
 }
@@ -397,8 +410,8 @@ function processUserGenericInteraction (session, callback) {
 
     var repromptText = 'Unknown context';
     var shouldEndSession = false;
-    
-    callback(sessionAttributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
+    session.attributes = sessionAttributes;
+    callback(session.attributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 }
 
 function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
@@ -408,8 +421,12 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     
     var speechOutput = 'Thank you for your profile information. Saving profile.';
     //set session attributes
-    var sessionAttributes = session.attributes;
-    var logosName = sessionAttributes.logosName;
+    var accountId = session.attributes.userAccId;
+    var userName = session.attributes.logosName;
+    var profileId = session.attributes.userProfileId;
+    var hasProfile = session.attributes.userHasProfile;
+    var hasProfileComplete = session.attributes.profileComplete
+    var processor = 3;
     var isComplete = true;
     
     for (var obj in qnObj) {
@@ -417,8 +434,9 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     	if (!tempObj.processed) {
     		var quest = tempObj.question;
     		if (quest.indexOf("[name]") != -1) {
-    			console.log(' LogosHelper.executeCreateProfileQNA >>>>>>: Question has [name] tag, replacing with logos name '+logosName);
-    			quest = quest.replace("[name]", logosName);
+    			console.log(' LogosHelper.executeCreateProfileQNA >>>>>>: Question has [name] tag, replacing with logos name '+userName);
+    			//quest = quest.replace("[name]", userName);
+    			quest = quest.replace("[name]", "your");
     		}
     		console.log('LogosHelper.executeCreateProfileQNA : Question is >>>>>>: '+quest);
     		speechOutput = quest;
@@ -429,6 +447,7 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     		if (tempObj.answer == '') {
     			tempObj.answer = slotValue;
     			//make DB call here every time  -- 
+    			dbUtil.updateProfileDetails(tempObj, session, callback);
     			isComplete = false;
     		}
     		continue;
@@ -437,18 +456,27 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     
     if (isComplete) {
     	//Profile Create QnA is completed, save this to database  - not required
-    } else {
+    	processor = 4;
+    } 
     
-    	sessionAttributes.qnaObjArr = qnObj;
-    	sessionAttributes.currentProcessor = 3;
-    }
+    //set session attributes
+    var sessionAttributes = {
+    		'currentProcessor':processor,
+    		'userAccId':accountId,
+    		'userProfileId':profileId,
+    		'logosName':userName,
+    		'userHasProfile':hasProfile,
+    		'profileComplete': hasProfileComplete,
+    		'qnaObjArr':qnObj
+    };
     
     var cardTitle = 'Profile QNA';
 
     var repromptText = 'Say Save Profile';
     var shouldEndSession = false;
+    session.attributes = sessionAttributes;
   
-    callback(sessionAttributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
+    callback(session.attributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 }
 
 function handleCreateLogosHealthProfile (event, context, userName, session, callback) {
@@ -465,10 +493,9 @@ function handleCreateLogosHealthProfile (event, context, userName, session, call
     var repromptText = 'Creating a profile';
     var shouldEndSession = false;
     
-    //TODO: Implement Create Profile DB logic here
-    //dbUtil.createHealthProfile(passparams);
+    session.attributes = sessionAttributes;
     
-    callback(sessionAttributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
+    callback(session.attributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 }
 
 function handleOpenLogosHealthProfile (event, context, intent, session, callback) {
@@ -488,8 +515,9 @@ function handleOpenLogosHealthProfile (event, context, intent, session, callback
     var accounts = ""; //dbUtil.getAllUserAccounts();
     
     console.log(" The Accounts retrieved from Database >>>>"+accounts);
+    session.attributes = sessionAttributes;
 
-    callback(sessionAttributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
+    callback(session.attributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 }
 
 
