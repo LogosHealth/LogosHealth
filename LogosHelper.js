@@ -220,7 +220,7 @@ function processIntent(event, context, intentRequest, session, callback) {
     var intentName = intentRequest.intent.name;
     
     var sessionAttributes = session.attributes; 
-    var accountId = sessionAttributes.accountId;
+    var accountId = sessionAttributes.userAccId;
     
     var slotValue = "";
     if (intentName === 'LaunchIntent') {
@@ -415,7 +415,7 @@ function processUserGenericInteraction (session, callback) {
 }
 
 function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
-    console.log(' LogosHelper.executeCreateProfileQNA >>>>>>');
+    console.log(' LogosHelper.executeCreateProfileQNA >>>>>> '+slotValue);
     
     var qnObj = getSortedQNAObject(qnaObj,"asc");
     
@@ -442,12 +442,14 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     		speechOutput = quest;
     		isComplete = false;
     		tempObj.processed = true;
+    		qnObj[obj].processed = true;
     		break;
     	} else {
     		if (tempObj.answer == '') {
     			tempObj.answer = slotValue;
+    			qnObj[obj].answer = slotValue;
     			//make DB call here every time  -- 
-    			dbUtil.updateProfileDetails(tempObj, session, callback);
+    			dbUtil.updateProfileDetails(tempObj, qnObj, session, callback);
     			isComplete = false;
     		}
     		continue;
