@@ -195,7 +195,13 @@ function getScriptDetails(scriptName, slotValue, session, callback)
         				"processed": false,
         				"uniqueStepId":results[res].uniquestepid,
         				"scriptname":scriptName,
-        				"answerKey":results[res].answerkeyfield
+        				"answerKey":results[res].answerkeyfield,
+        				"answerTable":results[res].answertable,
+        				"answerFieldValue":0,
+        				"insertNewRow":results[res].insertnewrow,
+        				"isDictionary":results[res].isdictionary,
+        				"formatId":results[res].formatid,
+        				"errResponse":results[res].errorresponse
                 	}
                 	QnAObjArr.push(qnaObj);
                 }
@@ -253,7 +259,7 @@ function getScriptDetails(scriptName, slotValue, session, callback)
 							});
 							
                         } else {
-                                var updateRec="Update "+tblName+" Set "+vFields+" ='"+resArr.answer+"' Where answerkeyfield='"+resArr.answerKey+"'";
+                                var updateRec="Update "+tblName+" Set "+vFields+" ='"+resArr.answer+"' Where "+resArr.answerKey+"="+profileId;
                                 console.log("DBUtil.setProfileDetails - Update STMT >> ",updateRec);
                                 connection = getLogosConnection();
                                 connection.query(updateRec, function (error, results, fields) {
@@ -262,7 +268,7 @@ function getScriptDetails(scriptName, slotValue, session, callback)
 									} else {
 										console.log('The record UPDATED successfully into Profile Table!!');
 										closeConnection(connection);
-										getProfileIdByLogosName (resArr.answer, qnaObjArr, session, callback);
+										helper.processQnAResponse(resArr.answer, qnaObjArr, session, callback);
 									}
 								});
                         }
@@ -272,7 +278,7 @@ function getScriptDetails(scriptName, slotValue, session, callback)
     }
 
 function getProfileIdByLogosName(slotVal, qnaObjArr, session, callback) {
-	console.log("DBUtil.getProfileIdByLogosName called "+qnaObjArr.answer);
+	console.log("DBUtil.getProfileIdByLogosName called "+slotVal);
 	var connection = getLogosConnection();
 	var profileId = "";
 	var sessionAttributes = session.attributes;
@@ -282,7 +288,7 @@ function getProfileIdByLogosName(slotVal, qnaObjArr, session, callback) {
 		if (error) {
 			console.log('The Error is: ', error);
 		} else {
-			console.log('Get Profile ID select query works');
+			console.log('Get Profile ID select query works with records size '+results.length);
 			if (results !== null && results.length > 0) {
                 profileId = results[0].profileid;
                 console.log("DBUtil.getProfileIdByLogosName - Profile ID retrieved as >>>> "+profileId);
@@ -290,6 +296,8 @@ function getProfileIdByLogosName(slotVal, qnaObjArr, session, callback) {
 				session.attributes = sessionAttributes;
 				closeConnection(connection);
 				helper.processQnAResponse(slotVal, qnaObjArr, session, callback);
+            } else {
+            	console.log("DBUtil.getProfileIdByLogosName Results are empty, that mean no profile found which is created just now >>> "+query);
             }
 		}
 	});

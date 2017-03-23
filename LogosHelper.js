@@ -432,36 +432,40 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     for (var obj in qnObj) {
     	var tempObj = qnObj[obj];
     	if (!tempObj.processed) {
-    		var quest = tempObj.question;
-    		if (quest.indexOf("[name]") != -1) {
-    			console.log(' LogosHelper.executeCreateProfileQNA >>>>>>: Question has [name] tag, replacing with logos name '+userName);
-    			//quest = quest.replace("[name]", userName);
-    			quest = quest.replace("[name]", "your");
-    		}
-    		console.log('LogosHelper.executeCreateProfileQNA : Question is >>>>>>: '+quest);
-    		speechOutput = quest;
-    		isComplete = false;
-    		tempObj.processed = true;
-    		qnObj[obj].processed = true;
+    		console.log(' LogosHelper.executeCreateProfileQNA Found question: skipping to response >>>>>> '+tempObj.question);
+    		processResponse(qnObj, session, callback);
     		break;
     	} else {
     		if (tempObj.answer == '') {
+    			if (tempObj.isDictionary != null || tempObj.isDictionary.toLowerCase() == 'y') {
+    				//process user input against dictionary table for validity, if valid continue updating table else throw error response
+    				//processErrorResponse(tempObj.errResponse, processor, session, callback);
+    			} else if (tempObj.formatId != null) {
+    				//validate user input against RegEx formatter, if error throw response otherwise continue
+    				//processErrorResponse(tempObj.errResponse, processor, session, callback);
+    			}
+    			
     			tempObj.answer = slotValue;
     			qnObj[obj].answer = slotValue;
     			//make DB call here every time  -- 
-    			dbUtil.updateProfileDetails(tempObj, qnObj, session, callback);
     			isComplete = false;
+    			console.log(' LogosHelper.executeCreateProfileQNA Found Q answered: skipping to DB for insertion >>>>>> '+tempObj.answer);
+    			dbUtil.updateProfileDetails(tempObj, qnObj, session, callback);
+    			break;
     		}
-    		continue;
+    		
     	}
     }
     
     if (isComplete) {
     	//Profile Create QnA is completed, save this to database  - not required
     	processor = 4;
+    	//implement response for further menu options
     } 
-    
-    //set session attributes
+}
+
+function processResponse(qnObj, session, callback) {
+	/*
     var sessionAttributes = {
     		'currentProcessor':processor,
     		'userAccId':accountId,
@@ -472,11 +476,55 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     		'qnaObjArr':qnObj
     };
     
+    */
+    
+    for (var obj in qnObj) {
+    	var tempObj = qnObj[obj];
+    	if (!tempObj.processed) {
+    		var quest = tempObj.question;
+    		
+    		if (quest.indexOf("[name]") != -1) {
+    			console.log(' LogosHelper.processResponse >>>>>>: Question has [name] tag, replacing with logos name '+userName);
+    			//quest = quest.replace("[name]", userName);
+    			quest = quest.replace("[name]", "your");
+    		}
+    		console.log('LogosHelper.processResponse : Question is >>>>>>: '+quest);
+    		speechOutput = quest;
+    		qnObj[obj].processed = true;
+    		break;
+    	}
+    }
+    
     var cardTitle = 'Profile QNA';
 
     var repromptText = 'Say Save Profile';
     var shouldEndSession = false;
-    session.attributes = sessionAttributes;
+    session.attributes.currentProcessor = 3;
+    session.attributes.qnaObjArr = qnObj;
+  
+    callback(session.attributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
+}
+
+function processErrorResponse(errorText, processor, session, callback) {
+	/*
+    var sessionAttributes = {
+    		'currentProcessor':processor,
+    		'userAccId':accountId,
+    		'userProfileId':profileId,
+    		'logosName':userName,
+    		'userHasProfile':hasProfile,
+    		'profileComplete': hasProfileComplete,
+    		'qnaObjArr':qnObj
+    };
+    
+    */
+    
+    var cardTitle = 'User Input Error';
+
+    var repromptText = 'Please provide a valid response';
+    var shouldEndSession = false;
+    session.attributes.currentProcessor = processor;
+    speechOutput = errorText;
   
     callback(session.attributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 }
