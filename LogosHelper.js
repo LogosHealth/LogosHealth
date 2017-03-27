@@ -159,6 +159,13 @@ exports.processQnAResponse = function processQnAResponse(slotValue, qnaObj, sess
   	executeCreateProfileQNA(slotValue, qnaObj, session, callback);
 };
 
+exports.processErrResponse= function processErrResponse(errorText, processor, session, callback) {
+  	console.log(' LogosHelper.processErrResponse >>>>>>');
+  	processErrorResponse(errorText, processor, session, callback) ;
+};
+
+
+
 function getLinkedAccountEmail(event, request, session, accountId, callback) {
     console.log(" Getting Account Linked Email ");
 	
@@ -437,21 +444,25 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     		break;
     	} else {
     		if (tempObj.answer == '') {
-    			if (tempObj.isDictionary != null || tempObj.isDictionary.toLowerCase() == 'y') {
-    				//process user input against dictionary table for validity, if valid continue updating table else throw error response
-    				//processErrorResponse(tempObj.errResponse, processor, session, callback);
+    			if (tempObj.isDictionary != null && tempObj.isDictionary.toLowerCase() == 'y') {
+    				console.log(' LogosHelper.executeCreateProfileQNA : Field is Dictionary type, get ID >>>>>> '+tempObj.isDictionary);
+    				dbUtil.readDictoinaryId(tempObj, qnObj, obj, slotValue, processor, session, callback);
+    				break;
     			} else if (tempObj.formatId != null) {
+    				console.log(' LogosHelper.executeCreateProfileQNA : Field has format ID to format user input >>>>>> '+tempObj.formatId);
     				//validate user input against RegEx formatter, if error throw response otherwise continue
-    				//processErrorResponse(tempObj.errResponse, processor, session, callback);
-    			}
+    				dbUtil.validateData(tempObj, qnObj, obj, slotValue, processor, session, callback);
+    				break;
+    			}  else {
     			
-    			tempObj.answer = slotValue;
-    			qnObj[obj].answer = slotValue;
-    			//make DB call here every time  -- 
-    			isComplete = false;
-    			console.log(' LogosHelper.executeCreateProfileQNA Found Q answered: skipping to DB for insertion >>>>>> '+tempObj.answer);
-    			dbUtil.updateProfileDetails(tempObj, qnObj, session, callback);
-    			break;
+    				tempObj.answer = slotValue;
+    				qnObj[obj].answer = slotValue;
+    				//make DB call here every time  -- 
+    				isComplete = false;
+    				console.log(' LogosHelper.executeCreateProfileQNA Found Q answered: skipping to DB for insertion >>>>>> '+tempObj.answer);
+    				dbUtil.updateProfileDetails(tempObj, qnObj, session, callback);
+    				break;
+    			}
     		}
     		
     	}
@@ -465,6 +476,7 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
 }
 
 function processResponse(qnObj, session, callback) {
+	console.log('LogosHelper.processResponse : CALLED>>> ');
 	/*
     var sessionAttributes = {
     		'currentProcessor':processor,
@@ -506,6 +518,7 @@ function processResponse(qnObj, session, callback) {
 }
 
 function processErrorResponse(errorText, processor, session, callback) {
+	console.log('LogosHelper.processErrorResponse : CALLED>>> ');
 	/*
     var sessionAttributes = {
     		'currentProcessor':processor,
