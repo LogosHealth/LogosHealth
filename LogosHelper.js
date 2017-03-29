@@ -444,23 +444,22 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     		break;
     	} else {
     		if (tempObj.answer == '') {
-    			if (tempObj.isDictionary != null && tempObj.isDictionary.toLowerCase() == 'y') {
+    			if (tempObj.isDictionary !== null && tempObj.isDictionary.toLowerCase() == 'y') {
     				console.log(' LogosHelper.executeCreateProfileQNA : Field is Dictionary type, get ID >>>>>> '+tempObj.isDictionary);
     				dbUtil.readDictoinaryId(tempObj, qnObj, obj, slotValue, processor, session, callback);
     				break;
-    			} else if (tempObj.formatId != null) {
+    			} /*else if (tempObj.formatId !== null) {
     				console.log(' LogosHelper.executeCreateProfileQNA : Field has format ID to format user input >>>>>> '+tempObj.formatId);
     				//validate user input against RegEx formatter, if error throw response otherwise continue
     				dbUtil.validateData(tempObj, qnObj, obj, slotValue, processor, session, callback);
     				break;
-    			}  else {
-    			
+    			} */ else {
     				tempObj.answer = slotValue;
     				qnObj[obj].answer = slotValue;
     				//make DB call here every time  -- 
     				isComplete = false;
     				console.log(' LogosHelper.executeCreateProfileQNA Found Q answered: skipping to DB for insertion >>>>>> '+tempObj.answer);
-    				dbUtil.updateProfileDetails(tempObj, qnObj, session, callback);
+    				dbUtil.updateProfileDetails(tempObj, qnObj, obj, session, callback);
     				break;
     			}
     		}
@@ -489,6 +488,8 @@ function processResponse(qnObj, session, callback) {
     };
     
     */
+    var sessionAttributes = session.attributes;
+    var userName = sessionAttributes.logosName;
     
     for (var obj in qnObj) {
     	var tempObj = qnObj[obj];
@@ -497,8 +498,10 @@ function processResponse(qnObj, session, callback) {
     		
     		if (quest.indexOf("[name]") != -1) {
     			console.log(' LogosHelper.processResponse >>>>>>: Question has [name] tag, replacing with logos name '+userName);
-    			//quest = quest.replace("[name]", userName);
     			quest = quest.replace("[name]", "your");
+    		} else {
+    			console.log(' LogosHelper.processResponse >>>>>>: Question has [name] tag, replacing with logos name '+userName);
+    			quest = quest.replace("[names]", userName);
     		}
     		console.log('LogosHelper.processResponse : Question is >>>>>>: '+quest);
     		speechOutput = quest;
