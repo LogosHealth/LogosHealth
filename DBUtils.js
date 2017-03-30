@@ -373,11 +373,12 @@ function getUniqueIdFromAnswerTable(resArr, qnaObjArr, resArrIdx, tableNm, colNm
 		} else {
 			console.log('Get Answer Key Value select query works with records size '+results.length);
 			if (results !== null && results.length > 0) {
-                answerVal = results[0]+"."+resArr.answerKey;
+                answerVal = results[0][resArr.answerKey];
                 console.log("DBUtil.getProfileIdByLogosName - Profile ID retrieved as >>>> "+answerVal);
                 if (tableNm != null && tableNm.toLowerCase() == 'profile') {
                 	profileId = results[0].profileid;
                 	sessionAttributes.userProfileId = profileId;
+                	qnaObjArr[resArrIdx].answerFieldValue = answerVal;
                 } else {
                 	qnaObjArr[resArrIdx].answerFieldValue = answerVal;
                 }
@@ -394,7 +395,9 @@ function getDictionaryId(tempObj, qnObj, indx, value, processor, session, callba
 	console.log("DBUtil.getDictionaryId called to get Dictionary ID for value >>>  "+value);
 	var connection = getLogosConnection();
 	var dictId = "";
-	var query = "SELECT dictionaryid FROM logoshealth.dictionary WHERE fieldname = '"+ tempObj.answerField + "' and (value = '"+value+"' OR dictionarycode = '"+value+"' )";
+	var fields = tempObj.answerField.split(",");
+	var field = fields[fields.length-1];
+	var query = "SELECT dictionaryid FROM logoshealth.dictionary WHERE fieldname = '"+field.trim()+"' and (value = '"+value+"' OR dictionarycode = '"+value+"' )";
 	console.log("DBUtil.getDictionaryId Select Query is >>> "+query);
 	
 	connection.query(query, function (error, results, fields) {
