@@ -397,7 +397,7 @@ function getDictionaryId(tempObj, qnObj, indx, value, processor, session, callba
 	var dictId = "";
 	var fields = tempObj.answerField.split(",");
 	var field = fields[fields.length-1];
-	var query = "SELECT dictionaryid FROM logoshealth.dictionary WHERE fieldname = '"+field.trim()+"' and (value = '"+value+"' OR dictionarycode = '"+value+"' )";
+	var query = "SELECT dictionaryid FROM logoshealth.dictionary WHERE fieldname = '"+field.trim()+"' and (LOWER(value) = '"+value.toLowerCase()+"' OR LOWER(dictionarycode) = '"+value.toLowerCase()+"' )";
 	console.log("DBUtil.getDictionaryId Select Query is >>> "+query);
 	
 	connection.query(query, function (error, results, fields) {
