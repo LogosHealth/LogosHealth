@@ -307,7 +307,7 @@ function setProfileDetails(resArr, qnaObjArr, resArrIndx, session, callback)
                                                         });
 
                         } else { //insertRow != Yes hence execute update
-                                var updateRec="Update "+tblName+" Set "+vFields+" ='"+resArr.answer+"' Where "+resArr.answerKey+"="+resArr.answerFieldValue;
+                                var updateRec="Update "+tblName+" Set "+vFields+" ='"+resArr.answer+"' Where "+resArr.answerKey+"="+profileId; //resArr.answerFieldValue;
                                 console.log("DBUtil.setProfileDetails - Update STMT >> ",updateRec);
                                 connection = getLogosConnection();
                                 connection.query(updateRec, function (error, results, fields) {
@@ -374,7 +374,7 @@ function getUniqueIdFromAnswerTable(resArr, qnaObjArr, resArrIdx, tableNm, colNm
 			console.log('Get Answer Key Value select query works with records size '+results.length);
 			if (results !== null && results.length > 0) {
                 answerVal = results[0][resArr.answerKey];
-                console.log("DBUtil.getProfileIdByLogosName - Profile ID retrieved as >>>> "+answerVal);
+                console.log("DBUtil.getUniqueIdFromAnswerTable - ID retrieved as >>>> "+answerVal);
                 if (tableNm != null && tableNm.toLowerCase() == 'profile') {
                 	profileId = results[0].profileid;
                 	sessionAttributes.userProfileId = profileId;
@@ -397,7 +397,7 @@ function getDictionaryId(tempObj, qnObj, indx, value, processor, session, callba
 	var dictId = "";
 	var fields = tempObj.answerField.split(",");
 	var field = fields[fields.length-1];
-	var query = "SELECT dictionaryid FROM logoshealth.dictionary WHERE fieldname = '"+field.trim()+"' and (LOWER(value) = '"+value.toLowerCase()+"' OR LOWER(dictionarycode) = '"+value.toLowerCase()+"' )";
+	var query = "SELECT dictionaryid FROM logoshealth.dictionary WHERE fieldname = '"+field.trim()+"' and (value = '"+value+"' OR dictionarycode = '"+value+"' )";
 	console.log("DBUtil.getDictionaryId Select Query is >>> "+query);
 	
 	connection.query(query, function (error, results, fields) {
@@ -529,6 +529,7 @@ function getUserProfileByName(userName, accountId, session, callback) {
             if (results !== null && results.length > 0) {
                 console.log("DBUtil.getUserProfileByName Profile ID found as  >>>>>"+results[0].profileid);
                 hasProfile = true;
+                profileComplete = true;
                 profileId = results[0].profileid;
             }
         }

@@ -303,8 +303,18 @@ function processNameIntentResponse(userName, profileId, hasProfile, profileCompl
     var accountId = session.attributes.userAccId;
     
     if (hasProfile) {
-    	speechOutput = 'Welcome back '+userName+ '. "," How can I help you today?';
-    	processor = 5;
+    	speechOutput = 'Hello '+userName+ '. "," Here is main menu. Please choose one of following options. ';
+    	speechOutput = speechOutput+ ' 1. Diet. '+
+					' 2. Exercise. '+
+					' 3. Medicine. '+
+					' 4. Vitamins and Supplements. '+
+					' 5. Medical Condition or Event. '+
+					' 6. Medical Test. '+
+					' 7. Family Member Profile. '+
+					' 8. Medical News and Information relevant to you.  '+
+					' 9. Medical Contacts.  '+
+					' 10. Take a Medical Interview. ';
+    		processor = 5;
     } else {
     	speechOutput = 'Hello '+userName+ ' , No profile found with your name on your Account. "," Would you like to create one?';
     	processor = 2;
@@ -353,7 +363,7 @@ function processAnswerIntent(event, slotValue, accountId, session, callback) {
         qnaObj = sessionAttributes.qnaObjArr;
         executeCreateProfileQNA(slotValue, qnaObj, session, callback);
         break;
-    case 3:
+    case 4:
        	processUserGenericInteraction (session, callback);
         break;
     default:
@@ -424,7 +434,7 @@ function processUserGenericInteraction (session, callback) {
 function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     console.log(' LogosHelper.executeCreateProfileQNA >>>>>> '+slotValue);
     
-    var qnObj = getSortedQNAObject(qnaObj,"asc");
+    var qnObj = qnaObj; //getSortedQNAObject(qnaObj,"asc");
     
     var speechOutput = 'Thank you for your profile information. Saving profile.';
     //set session attributes
@@ -438,39 +448,40 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     
     for (var obj in qnObj) {
     	var tempObj = qnObj[obj];
-    	if (!tempObj.processed) {
+    	if (!tempObj.processed && tempObj.answerTable) {
     		console.log(' LogosHelper.executeCreateProfileQNA Found question: skipping to response >>>>>> '+tempObj.question);
     		processResponse(qnObj, session, callback);
     		break;
-    	} else {
-    		if (tempObj.answer == '') {
-    			if (tempObj.isDictionary !== null && tempObj.isDictionary.toLowerCase() == 'y') {
-    				console.log(' LogosHelper.executeCreateProfileQNA : Field is Dictionary type, get ID >>>>>> '+tempObj.isDictionary);
-    				dbUtil.readDictoinaryId(tempObj, qnObj, obj, slotValue, processor, session, callback);
-    				break;
-    			} /*else if (tempObj.formatId !== null) {
-    				console.log(' LogosHelper.executeCreateProfileQNA : Field has format ID to format user input >>>>>> '+tempObj.formatId);
-    				//validate user input against RegEx formatter, if error throw response otherwise continue
-    				dbUtil.validateData(tempObj, qnObj, obj, slotValue, processor, session, callback);
-    				break;
-    			} */ else {
-    				tempObj.answer = slotValue;
-    				qnObj[obj].answer = slotValue;
-    				//make DB call here every time  -- 
-    				isComplete = false;
-    				console.log(' LogosHelper.executeCreateProfileQNA Found Q answered: skipping to DB for insertion >>>>>> '+tempObj.answer);
-    				dbUtil.updateProfileDetails(tempObj, qnObj, obj, session, callback);
-    				break;
-    			}
+    	} else if (tempObj.answer == '' && tempObj.answerTable) {
+    		if (tempObj.isDictionary !== null && tempObj.isDictionary.toLowerCase() == 'y') {
+    			console.log(' LogosHelper.executeCreateProfileQNA : Field is Dictionary type, get ID >>>>>> '+tempObj.isDictionary);
+    			dbUtil.readDictoinaryId(tempObj, qnObj, obj, slotValue, processor, session, callback);
+    			isComplete = false;
+    			break;
+    		} /*else if (tempObj.formatId !== null) {
+    			console.log(' LogosHelper.executeCreateProfileQNA : Field has format ID to format user input >>>>>> '+tempObj.formatId);
+    			//validate user input against RegEx formatter, if error throw response otherwise continue
+    			dbUtil.validateData(tempObj, qnObj, obj, slotValue, processor, session, callback);
+    			isComplete = false;
+    			break;
+    		} */ else {
+    			tempObj.answer = slotValue;
+    			qnObj[obj].answer = slotValue;
+    			//make DB call here every time  -- 
+    			isComplete = false;
+    			console.log(' LogosHelper.executeCreateProfileQNA Found Q answered: skipping to DB for insertion >>>>>> '+tempObj.answer);
+    			dbUtil.updateProfileDetails(tempObj, qnObj, obj, session, callback);
+    			break;
     		}
-    		
-    	}
+    	} 
     }
     
     if (isComplete) {
     	//Profile Create QnA is completed, save this to database  - not required
-    	processor = 4;
+    	console.log(' LogosHelper.executeCreateProfileQNA: Profile execution completed, send them to Main menu ');
     	//implement response for further menu options
+    	processResponse(qnObj, session, callback);
+    	//processNameIntentResponse(userName, profileId, true, true, session, callback);
     } 
 }
 
@@ -496,13 +507,24 @@ function processResponse(qnObj, session, callback) {
     	if (!tempObj.processed) {
     		var quest = tempObj.question;
     		
-    		if (quest.indexOf("[name]") != -1) {
+    		//replace [name] tag based on User profile exists or not
+    		if (quest.indexOf("[name]") != -1 && sessionAttributes.userHasProfile) {
     			console.log(' LogosHelper.processResponse >>>>>>: Question has [name] tag, replacing with logos name '+userName);
-    			quest = quest.replace("[name]", "your");
+    			quest = quest.replace("[name]", userName);
     		} else {
-    			console.log(' LogosHelper.processResponse >>>>>>: Question has [name] tag, replacing with logos name '+userName);
-    			quest = quest.replace("[names]", userName);
+    			console.log(' LogosHelper.processResponse >>>>>>: Question has [name] tag, replacing with logos name YOUR ');
+    			quest = quest.replace("[names]", "your");
     		}
+    		
+    		//replace [names] tag based on User profile exists or not
+    		if (quest.indexOf("[names]") != -1 && sessionAttributes.userHasProfile) {
+    			console.log(' LogosHelper.processResponse >>>>>>: Question has [name] tag, replacing with logos name '+userName+'s');
+    			quest = quest.replace("[names]", userName+'s');
+    		} else {
+    			console.log(' LogosHelper.processResponse >>>>>>: Question has [name] tag, replacing with logos name YOURS ');
+    			quest = quest.replace("[names]", "yours");
+    		}
+    		
     		console.log('LogosHelper.processResponse : Question is >>>>>>: '+quest);
     		speechOutput = quest;
     		qnObj[obj].processed = true;
