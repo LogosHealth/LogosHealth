@@ -254,6 +254,16 @@ function processIntent(event, context, intentRequest, session, callback) {
     else if (intentName == 'AMAZON.CancelIntent')  {        
 	    //quitRequest(intent, session, callback);  
     }
+    else if (intentName == 'AMAZON.YesIntent')  {   
+    	console.log(' AMAZON.YesIntent: Intent  called >>>>>>  '+intentName);
+    	session.attributes.currentProcessor = 2;
+        processAnswerIntent(event, slotValue, accountId, session, callback); 
+    }
+    else if (intentName == 'AMAZON.NoIntent')  {   
+    	console.log(' AMAZON.NoIntent: Intent  called >>>>>>  '+intentName);
+        //user choose to say NO, send him to the main menu
+        processor = 5;
+    }
     else if (intentName == 'AnswerIntent')  {        
 	    slotValue = intent.slots.Answer.value;
     	console.log(' processIntent: Intent  called >>>>>>  '+intentName+' the slot value is >>>>> '+slotValue);
@@ -303,7 +313,7 @@ function processNameIntentResponse(userName, profileId, hasProfile, profileCompl
     var accountId = session.attributes.userAccId;
     
     if (hasProfile) {
-    	speechOutput = 'Hello '+userName+ '. "," Here is main menu. Please choose one of following options. ';
+    	var speechOutput = 'Hello '+userName+ '. "," Here is main menu. Please choose one of following options. ';
     	speechOutput = speechOutput+ ' 1. Diet. '+
 					' 2. Exercise. '+
 					' 3. Medicine. '+
@@ -330,13 +340,8 @@ function processNameIntentResponse(userName, profileId, hasProfile, profileCompl
     		'profileComplete': profileComplete,
     		'qnaObjArr':qnaObj
     };
-
-    var repromptText = 'Say Create Profile';
-    var shouldEndSession = false;
-    session.attributes = sessionAttributes;
-    console.log(' LogosHelper:processUserNameInput >>>>>> Session Attributes '+session.attributes.logosName+' , '+session.attributes.userProfileId+' , '+session.attributes.profileComplete+' , '+session.attributes.userAccId);
     
-    callback(session.attributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
+    processMenuResponse(speechOutput, session, callback);
 
 }
 
@@ -458,13 +463,13 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     			dbUtil.readDictoinaryId(tempObj, qnObj, obj, slotValue, processor, session, callback);
     			isComplete = false;
     			break;
-    		} /*else if (tempObj.formatId !== null) {
+    		} else if (tempObj.formatId !== null) {
     			console.log(' LogosHelper.executeCreateProfileQNA : Field has format ID to format user input >>>>>> '+tempObj.formatId);
     			//validate user input against RegEx formatter, if error throw response otherwise continue
     			dbUtil.validateData(tempObj, qnObj, obj, slotValue, processor, session, callback);
     			isComplete = false;
     			break;
-    		} */ else {
+    		} else {
     			tempObj.answer = slotValue;
     			qnObj[obj].answer = slotValue;
     			//make DB call here every time  -- 
@@ -487,18 +492,7 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
 
 function processResponse(qnObj, session, callback) {
 	console.log('LogosHelper.processResponse : CALLED>>> ');
-	/*
-    var sessionAttributes = {
-    		'currentProcessor':processor,
-    		'userAccId':accountId,
-    		'userProfileId':profileId,
-    		'logosName':userName,
-    		'userHasProfile':hasProfile,
-    		'profileComplete': hasProfileComplete,
-    		'qnaObjArr':qnObj
-    };
-    
-    */
+	
     var sessionAttributes = session.attributes;
     var userName = sessionAttributes.logosName;
     
@@ -544,18 +538,6 @@ function processResponse(qnObj, session, callback) {
 
 function processErrorResponse(errorText, processor, session, callback) {
 	console.log('LogosHelper.processErrorResponse : CALLED>>> ');
-	/*
-    var sessionAttributes = {
-    		'currentProcessor':processor,
-    		'userAccId':accountId,
-    		'userProfileId':profileId,
-    		'logosName':userName,
-    		'userHasProfile':hasProfile,
-    		'profileComplete': hasProfileComplete,
-    		'qnaObjArr':qnObj
-    };
-    
-    */
     
     var cardTitle = 'User Input Error';
 
@@ -563,6 +545,18 @@ function processErrorResponse(errorText, processor, session, callback) {
     var shouldEndSession = false;
     session.attributes.currentProcessor = processor;
     speechOutput = errorText;
+  
+    callback(session.attributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
+}
+
+function processMenuResponse(speechOutput, session, callback) {
+	console.log('LogosHelper.processMenuResponse : CALLED>>> ');
+	
+    var cardTitle = 'Main Menu';
+
+    var repromptText = 'Main Menu Options';
+  
+    var shouldEndSession = false;
   
     callback(session.attributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 }

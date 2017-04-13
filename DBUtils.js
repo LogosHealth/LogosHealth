@@ -115,17 +115,17 @@ exports.updateProfileDetails = function updateProfileDetails(resArr, qnaObjArr, 
  * @VG 3/13 | Manages Profile based script context in STAGING Table
  */
  
- /*
+ 
 exports.setScriptContext = function setScriptContext(profileID, scriptID, scriptStep) {
   	console.log(' DBUtils.setScriptContext >>>>>>');
   	setScriptContext(profileID, scriptID, scriptStep);
  };
  
- */
+ 
  
  //vg 3/12|Purpose: Set the context for specific Script's Step
 //This function MUST be called after committing every step in the DB
-/*
+
 function setScriptContext(profileID, scriptID, scriptStep)
 {
 	console.log("DBUtil.setScriptContext called with param >>>>> " +scriptID+"-"+scriptStep);
@@ -188,7 +188,7 @@ function createNewAccountIDFromEmail(vEmail, session, callback, connection)
 		});
 }
 
-*/
+
 
 //VG 2/26|Purpose: To pull script based questions for Alexa Madam
 function getScriptDetails(scriptName, slotValue, session, callback)
@@ -438,14 +438,30 @@ function validateUserInput(tempObj, qnObj, indx, value, processor, session, call
 			
 			if (results !== null && results.length > 0) {
                 regEx = results[0].formatcode;
-                //var pattern = new RegExp("^\\d{9}$");
+                var pattern = "";
+                
+                if (tempObj.formatId == 1) {
+                	//validate with zipcode
+                	pattern = new RegExp("^[0-9]{5}(?:-[0-9]{4})?$");
+                } else if (tempObj.formatId == 2) {
+                	//validate with phone number format
+                	pattern = new RegExp("^\\d{10}$");
+                } else if (tempObj.formatId == 3) {
+                	//validate with phone number format
+                	pattern = new RegExp("date_format()");
+                } else if (tempObj.formatId == 4) {
+                	//validate with phone number format
+                	pattern = new RegExp("^\\d{9}$");
+                }
+                
        			console.log("DBUtil.getDictionaryId - RegEx Format retrieved as >>>> "+regEx);
-       			var pattern = new RegExp(results[0].formatcode);
+       			
+       			//var pattern = new RegExp(results[0].formatcode);
        			if (pattern.test(value)) {
        				tempObj.answer = value;
     				qnObj[indx].answer = value;
     				console.log(' LogosHelper.executeCreateProfileQNA Found Q answered: skipping to DB for isnert/update >>>>>> '+tempObj.answer);
-    				setProfileDetails(tempObj, qnObj, session, callback);
+    				setProfileDetails(tempObj, qnObj, indx, session, callback);
     			} else {
     				console.log("DBUtil.validateUserInput - RegEx threw error for user input >>>> "+tempObj.errResponse);
     				//process error response
