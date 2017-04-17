@@ -122,57 +122,79 @@ exports.setScriptContext = function setScriptContext(profileID, scriptID, script
  };
  
  
- 
- //vg 3/12|Purpose: Set the context for specific Script's Step
-//This function MUST be called after committing every step in the DB
-
-function setScriptContext(profileID, scriptID, scriptStep)
-{
-	console.log("DBUtil.setScriptContext called with param >>>>> " +scriptID+"-"+scriptStep);
+//VG 4/13|Purpose: Set the STG tables with processed information 
+function setTranscriptDetailsParent(resArr, qnaObjArr, slotVal, session, callback){
+    console.log("DBUtil.setTranscriptDetailsParent called with param >>>>> ");
 	var connection = getLogosConnection();
-	var totalStep; //To capture total steps in the script
-	//get the totalSteps for every script
-	connection.query("SELECT max(s.scriptstep) as totalSteps FROM logoshealth.script s where scriptid="+scriptID, function(error, results, fields) {
+	
+	var sessionAttributes = session.attributes;
+    var profileId = sessionAttributes.userProfileId;
+    
+    var stgRec = {profileid:profileId, uniquestepid:resArr.uniqueStepId,createdby:profileId,modifiedby:profileId};
+    // 1. Insert into STG_Script table
+    connection.query('Insert into logoshealth.stg_script Set ?',stgRec, function (error, results, fields) {
 	if (error) {
-            console.log('The Error in MAX scriptStep: ', error);
-        } else
-		{
-			totalStep = results.totalSteps;
+            console.log('The Error is: ', error);
+        } else {
+			console.log('The record inserted into STG_SCRIPT successfully and now calling STG_Record table function!!');
+			getStagingParentId(resArr, qnaObjArr, slotVal, session, callback);
+		}
+        	closeConnection(connection); //all is done so releasing the resources
+		});
+}//function ends here
+
+function getStagingParentId(resArr, qnaObjArr, slotVal, session, callback) {
+	console.log("DBUtil.getStagingParentId called to get Staging script ID for value >>>  ");
+	var connection = getLogosConnection();
+	var stgId = "";
+	
+	var sessionAttributes = session.attributes;
+    var profileId = sessionAttributes.userProfileId;
+	
+	var query = "select stg_scriptid from stg_script where profileid ="+profileId+" and uniquestepid="+resArr.uniqueStepId;
+	console.log("DBUtil.getStagingParentId Select Query is >>> "+query);
+	
+	connection.query(query, function (error, results, fields) {
+		if (error) {
+			console.log("DBUtil.getStagingParentId - Database QUERY ERROR >>>> ");
+		} else {
+			console.log('DBUtil.getStagingParentId - Query results '+results.length);
+			
+			if (results !== null && results.length > 0) {
+                stgId = results[0].stg_scriptid;
+       			console.log("DBUtil.getStagingParentId - Script ID retrieved as >>>> "+stgId);
+    			setTranscriptDetailsChild(stgId, resArr, qnaObjArr, slotVal, session, callback);
+            } else {
+            	console.log("DBUtil.getDictionaryId - RegEx threw error for user input >>>> "+tempObj.errResponse);
+    			//process error response
+    			helper.processErrResponse("Couldn't find Staging Script Error - Admin Error ", processor, session, callback);
+            }
 		}
 	});
-	var scriptNextStep=scriptStep+1;
-	//Create a new STG record if STEP is 1
-	if (scriptStep='1')
-	{
-		stgRec = {stg_scriptid:'1', scriptid:scriptID, profileid:profileID,scriptstep:scriptNextStep, createdby:'1',modifiedby:'1'};
-		connection.query('Insert into logoshealth.stg_script Set ?',stgRec, function (error, results, fields) {
-		if (error) 
-		{
-            console.log('The Error in INSERT stamt of logoshealth.stg_script: ', error);
-        }
-		}); //Insert STMT ends here
-	}
-	if ( scriptStep>1 && scriptStep!=totalStep)
-	{
-		connection.query("Update logoshealth.stg_script Set scriptstep="+scriptNextStep+" where profileid='" +profileID+"' and scriptID='"+scriptID+"'", function(error, results, fields) {
-			if (error) 
-			{
-				console.log('The Error in UPDATE stamt of logoshealth.stg_script: ', error);
-			}
-		}); //Update STMT ends here
-	}
-	if (scriptStep=totalStep)
-	{
-		//Update the staging with final scriptStep# since script is completed
-		connection.query("Update logoshealth.stg_script Set scriptstep="+scriptStep+" where profileid='" +profileID+"' and scriptID='"+scriptID+"'", function(error, results, fields) {
-			if (error) 
-			{
-				console.log('The Error in UPDATE stamt of logoshealth.stg_script: ', error);
-			}
-		}); //Update STMT for final step ends here
-	}
-	connection.end();
 }
+
+//VG 4/13|Purpose: Set the STG tables with processed information 
+//keyID will be the key from parent table STG_Script table
+function setTranscriptDetailsChild(keyId, resArr, qnaObjArr, slotVal, session, callback){
+    console.log("DBUtil.setTranscriptDetailsChild called with param >>>>> ");
+    var connection = getLogosConnection();
+    
+    var sessionAttributes = session.attributes;
+    var profileId = sessionAttributes.userProfileId;
+    
+    var stgRec = {stg_scriptid:keyId, table:resArr.answerTable,recordid:resArr.answerFieldValue,createdby:profileId,modifiedby:profileId};
+    // 1. Insert into STG_Record table
+    connection.query('Insert into logoshealth.stg_records Set ?',stgRec, function (error, results, fields) {
+	if (error) {
+            console.log('The Error is: ', error);
+        } else {
+			console.log('The record inserted into STG_RECORDS successfully!!'+'--'+stgRec);
+			helper.processQnAResponse(slotVal, qnaObjArr, session, callback);
+		}
+        	closeConnection(connection); //all is done so releasing the resources
+		});
+    
+}//function ends here
 
 //VG 2/25|Purpose: Insert a new Account Information in DB
 function createNewAccountIDFromEmail(vEmail, session, callback, connection)
@@ -316,7 +338,8 @@ function setProfileDetails(resArr, qnaObjArr, resArrIndx, session, callback)
                                                                         } else {
                                                                                 console.log('The record UPDATED successfully into Profile Table!!');
                                                                                 closeConnection(connection);
-                                                                                helper.processQnAResponse(resArr.answer, qnaObjArr, session, callback);
+                                                                                //insert records into Parent Transcript Array - Staging scripts would redirect to Response process
+                                                                                setTranscriptDetailsParent(resArr, qnaObjArr, resArr.answer, session, callback);  
                                                                         }
                                                                 });
                             }
@@ -382,8 +405,9 @@ function getUniqueIdFromAnswerTable(resArr, qnaObjArr, resArrIdx, tableNm, colNm
                 } else {
                 	qnaObjArr[resArrIdx].answerFieldValue = answerVal;
                 }
+                resArr.answerFieldValue = answerVal;
 				closeConnection(connection);
-				helper.processQnAResponse(slotVal, qnaObjArr, session, callback);
+				setTranscriptDetailsParent(resArr, qnaObjArr, slotVal, session, callback);  //insert records into Parent Transcript Array
             } else {
             	console.log("DBUtil.getUniqueIdFromAnswerTable Results are empty, that mean no profile found which is created just now >>> "+query);
             }

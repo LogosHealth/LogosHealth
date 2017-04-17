@@ -263,6 +263,8 @@ function processIntent(event, context, intentRequest, session, callback) {
     	console.log(' AMAZON.NoIntent: Intent  called >>>>>>  '+intentName);
         //user choose to say NO, send him to the main menu
         processor = 5;
+        processUserGenericInteraction(event, intent, session, callback);   //Temp generic response, in fact user to be shown main menu
+        
     }
     else if (intentName == 'AnswerIntent')  {        
 	    slotValue = intent.slots.Answer.value;
