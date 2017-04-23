@@ -154,9 +154,9 @@ exports.processUserReponse = function processUserReponse(event, context, intent,
   	processIntent(event, context, intent, session, callback);
 };
 
-exports.processQnAResponse = function processQnAResponse(slotValue, qnaObj, session, callback) {
+exports.processQnAResponse = function processQnAResponse(qnaObj, session, callback) {
   	console.log(' LogosHelper.processQnAResponse >>>>>>');
-  	executeCreateProfileQNA(slotValue, qnaObj, session, callback);
+  	processResponse(qnaObj, session, callback);
 };
 
 exports.processErrResponse= function processErrResponse(errorText, processor, session, callback) {
@@ -280,15 +280,15 @@ function processIntent(event, context, intentRequest, session, callback) {
 function processWelcomeResponse(accountid, session, callback ) {
     console.log(' LogosHelper.processWelcomeResponse >>>>>>'+accountid);
     // If we wanted to initialize the session to have some attributes we could add those here.
-    
+    var qnObj = '';
     var sessionAttributes = {
     		'currentProcessor':1,
     		'userAccId':accountid,
-    		'userProfileId':'',
+    		'userProfileId':0,
     		'logosName':'',
     		'userHasProfile':false,
     		'profileComplete': false,
-    		'qnaObjArr':''
+    		'qnaObj':qnObj
     };
     
 	session.attributes = sessionAttributes;
@@ -308,7 +308,7 @@ function processNameIntentResponse(userName, profileId, hasProfile, profileCompl
     // User Name has been processed
     console.log(' LogosHelper:processUserNameInput >>>>>>');
     
-    var qnaObj = [];
+    var qnObj = {};
     var processor = 0;
     var cardTitle = 'User Profile';
     var speechOutput = "";
@@ -340,8 +340,10 @@ function processNameIntentResponse(userName, profileId, hasProfile, profileCompl
     		'logosName':userName,
     		'userHasProfile':hasProfile,
     		'profileComplete': profileComplete,
-    		'qnaObjArr':qnaObj
+    		'qnaObj':qnObj
     };
+    
+    session.attributes = sessionAttributes;
     
     processMenuResponse(speechOutput, session, callback);
 
@@ -350,7 +352,7 @@ function processNameIntentResponse(userName, profileId, hasProfile, profileCompl
 function processAnswerIntent(event, slotValue, accountId, session, callback) {
     // User Name has been processed
     console.log(' LogosHelper:processAnswerIntent >>>>>>');
-    var qnaObj = [];
+    var qnaObj = {};
     //set session attributes
     var sessionAttributes = session.attributes;
     var currentProcessor = sessionAttributes.currentProcessor;
@@ -363,11 +365,11 @@ function processAnswerIntent(event, slotValue, accountId, session, callback) {
     case 2:
        //Create Profile QnA
         var scriptName = "Create a New Primary Profile";
-        dbUtil.readQuestsionsForBranch(scriptName, slotValue, session, callback);
+        dbUtil.readQuestsionsForBranch(0, scriptName, slotValue, session, callback);
         break;
     case 3:
        //Continue profile QnA until completes
-        qnaObj = sessionAttributes.qnaObjArr;
+        qnaObj = sessionAttributes.qnaObj;
         executeCreateProfileQNA(slotValue, qnaObj, session, callback);
         break;
     case 4:
@@ -377,39 +379,6 @@ function processAnswerIntent(event, slotValue, accountId, session, callback) {
         processUserGenericInteraction (session, callback);
 	}
 
-}
-
-function getSortedQNAObject(QnAObjArr, sortKey) {
-	 console.log(' LogosHelper:getSortedQNAObject >>>>>>');
-	 
-	 /*
-	 QnAObjArr = [
-    	{
-        	"question_seq": 2,
-        	"Question": "What is your age in number?",
-        	"Answer": "",
-        	"processed": false
-    	}, {
-        	"question_seq": 3,
-        	"Question": "Are you employed?",
-        	"Answer": "",
-        	"processed": false
-    	}, {
-        	"question_seq": 1,
-        	"Question": "What is your Gender?",
-        	"Answer": "",
-        	"processed": false
-    	}
-	];
-	
-	*/
-	
-	//sort in ascending order
-	QnAObjArr.sort(function(a, b) {
-    	return parseInt(a.questionId) - parseInt(b.questionId);
-	});
-	
-	return QnAObjArr;
 }
 
 function handleSessionEndRequest(callback) {
@@ -441,8 +410,6 @@ function processUserGenericInteraction (session, callback) {
 function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     console.log(' LogosHelper.executeCreateProfileQNA >>>>>> '+slotValue);
     
-    var qnObj = qnaObj; //getSortedQNAObject(qnaObj,"asc");
-    
     var speechOutput = 'Thank you for your profile information. Saving profile.';
     //set session attributes
     var accountId = session.attributes.userAccId;
@@ -453,43 +420,23 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     var processor = 3;
     var isComplete = true;
     
-    for (var obj in qnObj) {
-    	var tempObj = qnObj[obj];
-    	if (!tempObj.processed && tempObj.answerTable) {
-    		console.log(' LogosHelper.executeCreateProfileQNA Found question: skipping to response >>>>>> '+tempObj.question);
-    		processResponse(qnObj, session, callback);
-    		break;
-    	} else if (tempObj.answer == '' && tempObj.answerTable) {
-    		if (tempObj.isDictionary !== null && tempObj.isDictionary.toLowerCase() == 'y') {
-    			console.log(' LogosHelper.executeCreateProfileQNA : Field is Dictionary type, get ID >>>>>> '+tempObj.isDictionary);
-    			dbUtil.readDictoinaryId(tempObj, qnObj, obj, slotValue, processor, session, callback);
-    			isComplete = false;
-    			break;
-    		} else if (tempObj.formatId !== null) {
-    			console.log(' LogosHelper.executeCreateProfileQNA : Field has format ID to format user input >>>>>> '+tempObj.formatId);
-    			//validate user input against RegEx formatter, if error throw response otherwise continue
-    			dbUtil.validateData(tempObj, qnObj, obj, slotValue, processor, session, callback);
-    			isComplete = false;
-    			break;
-    		} else {
-    			tempObj.answer = slotValue;
-    			qnObj[obj].answer = slotValue;
-    			//make DB call here every time  -- 
-    			isComplete = false;
-    			console.log(' LogosHelper.executeCreateProfileQNA Found Q answered: skipping to DB for insertion >>>>>> '+tempObj.answer);
-    			dbUtil.updateProfileDetails(tempObj, qnObj, obj, session, callback);
-    			break;
-    		}
-    	} 
+    if (!hasProfileComplete) {
+    	if (qnaObj.isDictionary !== null && qnaObj.isDictionary.toLowerCase() == 'y') {
+    		console.log(' LogosHelper.executeCreateProfileQNA : Field is Dictionary type, get ID >>>>>> '+qnaObj.isDictionary);
+    		//dbUtil.readDictoinaryId(qnaObj, slotValue, processor, session, callback);
+    	} /*else if (qnaObj.formatId && qnaObj.formatId !== null) {
+			console.log(' LogosHelper.executeCreateProfileQNA : Field has format ID to format user input >>>>>> '+qnaObj.formatId);
+			//validate user input against RegEx formatter, if error throw response otherwise continue
+			dbUtil.validateData(qnaObj, slotValue, processor, session, callback);
+		} */else {
+			qnaObj.answer = slotValue;
+			//insert/update into script table
+			console.log(' LogosHelper.executeCreateProfileQNA Found Q answered: passing to DB for insertion >>>>>> '+qnaObj.answer);
+			dbUtil.updateProfileDetails(qnaObj, session, callback);
+		}
+    } else {
+    	//processResponse(qnaObj, session, callback);
     }
-    
-    if (isComplete) {
-    	//Profile Create QnA is completed, save this to database  - not required
-    	console.log(' LogosHelper.executeCreateProfileQNA: Profile execution completed, send them to Main menu ');
-    	//implement response for further menu options
-    	processResponse(qnObj, session, callback);
-    	//processNameIntentResponse(userName, profileId, true, true, session, callback);
-    } 
 }
 
 function processResponse(qnObj, session, callback) {
@@ -497,44 +444,37 @@ function processResponse(qnObj, session, callback) {
 	
     var sessionAttributes = session.attributes;
     var userName = sessionAttributes.logosName;
+    var quest = qnObj.question;
     
-    for (var obj in qnObj) {
-    	var tempObj = qnObj[obj];
-    	if (!tempObj.processed) {
-    		var quest = tempObj.question;
-    		
-    		//replace [name] tag based on User profile exists or not
-    		if (quest.indexOf("[name]") != -1 && sessionAttributes.userHasProfile) {
-    			console.log(' LogosHelper.processResponse >>>>>>: Question has [name] tag, replacing with logos name '+userName);
-    			quest = quest.replace("[name]", userName);
-    		} else {
-    			console.log(' LogosHelper.processResponse >>>>>>: Question has [name] tag, replacing with logos name YOUR ');
-    			quest = quest.replace("[names]", "your");
-    		}
-    		
-    		//replace [names] tag based on User profile exists or not
-    		if (quest.indexOf("[names]") != -1 && sessionAttributes.userHasProfile) {
-    			console.log(' LogosHelper.processResponse >>>>>>: Question has [name] tag, replacing with logos name '+userName+'s');
-    			quest = quest.replace("[names]", userName+'s');
-    		} else {
-    			console.log(' LogosHelper.processResponse >>>>>>: Question has [name] tag, replacing with logos name YOURS ');
-    			quest = quest.replace("[names]", "yours");
-    		}
-    		
-    		console.log('LogosHelper.processResponse : Question is >>>>>>: '+quest);
-    		speechOutput = quest;
-    		qnObj[obj].processed = true;
-    		break;
-    	}
-    }
+    //replace [name] tag based on User profile exists or not
+	if (quest.indexOf("[name]") != -1 && sessionAttributes.userHasProfile) {
+		console.log(' LogosHelper.processResponse >>>>>>: Question has [name] tag, replacing with logos name '+userName);
+		quest = quest.replace("[name]", userName);
+	} else {
+		console.log(' LogosHelper.processResponse >>>>>>: Question has [name] tag, replacing with logos name YOUR ');
+		quest = quest.replace("[names]", "your");
+	}
+	
+	//replace [names] tag based on User profile exists or not
+	if (quest.indexOf("[names]") != -1 && sessionAttributes.userHasProfile) {
+		console.log(' LogosHelper.processResponse >>>>>>: Question has [name] tag, replacing with logos name '+userName+'s');
+		quest = quest.replace("[names]", userName+'s');
+	} else {
+		console.log(' LogosHelper.processResponse >>>>>>: Question has [name] tag, replacing with logos name YOURS ');
+		quest = quest.replace("[names]", "yours");
+	}
+	
+	console.log(' LogosHelper.processResponse >>>>>>: output text is '+quest);
+	var speechOutput = quest;
+    qnObj.processed = true;
     
     var cardTitle = 'Profile QNA';
 
     var repromptText = 'Say Save Profile';
     var shouldEndSession = false;
     session.attributes.currentProcessor = 3;
-    session.attributes.qnaObjArr = qnObj;
-  
+    session.attributes.qnaObj = qnObj;
+  	console.log(' LogosHelper.processResponse >>>>>>: Speech response going back to user : '+callback);
     callback(session.attributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 }
 

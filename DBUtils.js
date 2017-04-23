@@ -82,32 +82,32 @@ exports.verifyUserProfile = function verifyUserProfile(usrName, accountId, sessi
  * @return {boolean} Function could be called
  * @public
  */
-exports.readDictoinaryId = function readDictoinaryId(tempObj, resArr, indx, value, processor, session, callback) {
+exports.readDictoinaryId = function readDictoinaryId(qnaObj, value, processor, session, callback) {
   console.log(' DBUtils.readDictoinaryId >>>>>>');
-  return getDictionaryId(tempObj, resArr, indx, value, processor, session, callback);
+  return getDictionaryId(qnaObj, value, processor, session, callback);
 };
 
-exports.validateData = function validateData(tempObj, resArr, indx, value, processor, session, callback) {
+exports.validateData = function validateData(qnaObj, value, processor, session, callback) {
   console.log(' DBUtils.validateData >>>>>>');
-  return validateUserInput(tempObj, resArr, indx, value, processor, session, callback);
+  return validateUserInput(qnaObj, value, processor, session, callback);
 };
 
 /**
  * @public name is getScriptDetails
  * @VG 2/26 | Pass the script as the param to get all possible questions
  */
-exports.readQuestsionsForBranch = function readQuestsionsForBranch(scriptName, slotValue, session, callback) {
+exports.readQuestsionsForBranch = function readQuestsionsForBranch(questionId, scriptName, slotValue, session, callback) {
   	console.log(' DBUtils.readQuestsionsForBranch >>>>>>' +scriptName);
-  	getScriptDetails(scriptName, slotValue, session, callback);
+  	getScriptDetails(questionId, scriptName, slotValue, session, callback);
 };
 
 /**
  * @public
  * @VG 2/28 | Expects session information as a user response passed here to create a profile
  */
-exports.updateProfileDetails = function updateProfileDetails(resArr, qnaObjArr, resArrIndx, session, callback){
-  	console.log(' DBUtils.setProfileDetails >>>>>>'+resArr.answer);
-  	setProfileDetails(resArr, qnaObjArr, resArrIndx, session, callback);
+exports.updateProfileDetails = function updateProfileDetails(qnaObj, session, callback){
+  	console.log(' DBUtils.setProfileDetails >>>>>>'+qnaObj.answer);
+  	setProfileDetails(qnaObj, session, callback);
 };
 
 /**
@@ -123,27 +123,41 @@ exports.setScriptContext = function setScriptContext(profileID, scriptID, script
  
  
 //VG 4/13|Purpose: Set the STG tables with processed information 
-function setTranscriptDetailsParent(resArr, qnaObjArr, slotVal, session, callback){
+function setTranscriptDetailsParent(newRec, qnaObj, session, callback){
     console.log("DBUtil.setTranscriptDetailsParent called with param >>>>> ");
-	var connection = getLogosConnection();
-	
+	//Check if Staging has any record or not
+    //var newRec = getStagingParentId(resArr, qnaObjArr, slotVal, session, callback);
+    var connection = getLogosConnection();
 	var sessionAttributes = session.attributes;
     var profileId = sessionAttributes.userProfileId;
-    
-    var stgRec = {profileid:profileId, uniquestepid:resArr.uniqueStepId,createdby:profileId,modifiedby:profileId};
-    // 1. Insert into STG_Script table
-    connection.query('Insert into logoshealth.stg_script Set ?',stgRec, function (error, results, fields) {
-	if (error) {
-            console.log('The Error is: ', error);
-        } else {
-			console.log('The record inserted into STG_SCRIPT successfully and now calling STG_Record table function!!');
-			getStagingParentId(resArr, qnaObjArr, slotVal, session, callback);
-		}
-        	closeConnection(connection); //all is done so releasing the resources
+    if (newRec) {
+        var stgRec = {profileid:profileId, uniquestepid:qnaObj.uniqueStepId,createdby:profileId,modifiedby:profileId};
+        // 1. Insert into STG_Script table
+        connection.query('Insert into logoshealth.stg_script Set ?',stgRec, function (error, results, fields) {
+	    	if (error) {
+            	console.log('The Error in insert is: ', error);
+        	} else {
+				console.log('The record inserted into STG_SCRIPT successfully and now calling STG_Record table function!!');
+				closeConnection(connection); //all is done so releasing the resources
+        		getStagingParentId(newRec, qnaObj, session, callback);
+			}
+        	
 		});
+    }
+    else {
+        connection.query('Update logoshealth.stg_script Set uniquestepid='+qnaObj.uniqueStepId+' where profileid='+profileId,function(error, results,fields) {
+        	if (error) {
+            	console.log('The Error in update is: ', error);
+        	} else {
+				console.log('The record updated into STG_SCRIPT successfully and now calling STG_Record table function!!');
+				closeConnection(connection); //all is done so releasing the resources
+        		getStagingParentId(newRec, qnaObj, session, callback);
+			}
+        });
+    }
 }//function ends here
 
-function getStagingParentId(resArr, qnaObjArr, slotVal, session, callback) {
+function getStagingParentId(newRec, qnaObj, session, callback) {
 	console.log("DBUtil.getStagingParentId called to get Staging script ID for value >>>  ");
 	var connection = getLogosConnection();
 	var stgId = "";
@@ -151,7 +165,7 @@ function getStagingParentId(resArr, qnaObjArr, slotVal, session, callback) {
 	var sessionAttributes = session.attributes;
     var profileId = sessionAttributes.userProfileId;
 	
-	var query = "select stg_scriptid from stg_script where profileid ="+profileId+" and uniquestepid="+resArr.uniqueStepId;
+	var query = "select stg_scriptid from stg_script where profileid ="+profileId+" and uniquestepid="+qnaObj.uniqueStepId;
 	console.log("DBUtil.getStagingParentId Select Query is >>> "+query);
 	
 	connection.query(query, function (error, results, fields) {
@@ -163,7 +177,7 @@ function getStagingParentId(resArr, qnaObjArr, slotVal, session, callback) {
 			if (results !== null && results.length > 0) {
                 stgId = results[0].stg_scriptid;
        			console.log("DBUtil.getStagingParentId - Script ID retrieved as >>>> "+stgId);
-    			setTranscriptDetailsChild(stgId, resArr, qnaObjArr, slotVal, session, callback);
+    			setTranscriptDetailsChild(newRec, stgId, qnaObj, session, callback);
             } else {
             	console.log("DBUtil.getDictionaryId - RegEx threw error for user input >>>> "+tempObj.errResponse);
     			//process error response
@@ -175,24 +189,28 @@ function getStagingParentId(resArr, qnaObjArr, slotVal, session, callback) {
 
 //VG 4/13|Purpose: Set the STG tables with processed information 
 //keyID will be the key from parent table STG_Script table
-function setTranscriptDetailsChild(keyId, resArr, qnaObjArr, slotVal, session, callback){
-    console.log("DBUtil.setTranscriptDetailsChild called with param >>>>> ");
-    var connection = getLogosConnection();
-    
-    var sessionAttributes = session.attributes;
-    var profileId = sessionAttributes.userProfileId;
-    
-    var stgRec = {stg_scriptid:keyId, table:resArr.answerTable,recordid:resArr.answerFieldValue,createdby:profileId,modifiedby:profileId};
-    // 1. Insert into STG_Record table
-    connection.query('Insert into logoshealth.stg_records Set ?',stgRec, function (error, results, fields) {
-	if (error) {
+function setTranscriptDetailsChild(newRec, keyId, qnaObj, session, callback){
+    console.log("DBUtil.setTranscriptDetailsChild called with param >>>>> "+keyId);
+    //Only insert when the table changes
+    if (newRec) {    
+        var connection = getLogosConnection();
+        var sessionAttributes = session.attributes;
+        var profileId = sessionAttributes.userProfileId;
+        var stgRec = {stg_scriptid:keyId, table:qnaObj.answerTable,recordid:qnaObj.answerFieldValue,createdby:profileId,modifiedby:profileId};
+        // 1. Insert into STG_Record table
+        connection.query('Insert into logoshealth.stg_records Set ?',stgRec, function (error, results, fields) {
+        if (error) {
             console.log('The Error is: ', error);
         } else {
 			console.log('The record inserted into STG_RECORDS successfully!!'+'--'+stgRec);
-			helper.processQnAResponse(slotVal, qnaObjArr, session, callback);
+			loadStatusFromStaging(session.attributes.logosName, session.attributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
 		}
         	closeConnection(connection); //all is done so releasing the resources
 		});
+    } else {
+    	console.log('DBUtil.setTranscriptDetailsChild : No new record is required to insert');
+		loadStatusFromStaging(session.attributes.logosName, session.attributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
+    }
     
 }//function ends here
 
@@ -210,65 +228,74 @@ function createNewAccountIDFromEmail(vEmail, session, callback, connection)
 		});
 }
 
-
-
 //VG 2/26|Purpose: To pull script based questions for Alexa Madam
-function getScriptDetails(scriptName, slotValue, session, callback)
-{
-	console.log("DBUtil.getScriptDetails called with param >>>>> " +scriptName);
-	var connection = getLogosConnection();
-	connection.query("SELECT q.*,s.* FROM logoshealth.script s, logoshealth.question q where s.questionid=q.questionid and scriptname='"+scriptName+"' order by uniquestepid asc", function (error, results, fields) {
-	var QnAObjArr = [];
-	var qnaObj;
+function getScriptDetails(questionId, scriptName, slotValue, session, callback) {
 	
-	if (error) {
+	console.log("DBUtil.getScriptDetails called with param >>>>> " +questionId);
+	var connection = getLogosConnection();
+    var vSQL;
+	if (questionId == 0){
+        vSQL="SELECT q.*,s.* FROM logoshealth.script s, logoshealth.question q where s.questionid=q.questionid and scriptname='"+scriptName+"' order by uniquestepid asc limit 1";
+    }
+    else {
+        vSQL="SELECT q.*,s.* FROM logoshealth.script s, logoshealth.question q where s.questionid=q.questionid and scriptname='"+scriptName+"' and uniquestepid="+questionId;    
+    }
+    console.log("DBUtil.getScriptDetails Query is  >>>>> " +vSQL);
+    
+    connection.query(vSQL, function (error, results, fields) {
+    	
+    	var qnaObj;
+		if (error) {
             console.log('DBUtils.getScriptDetails Error. the Error is: ', error);
-        } else {
-            if (results !== null && results.length > 0) {
-                for (var res in results) {
-                	qnaObj = {
-                		"questionId": results[res].questionid,
-        				"question": results[res].question,
-        				"answer": "",
-        				"processed": false,
-        				"uniqueStepId":results[res].uniquestepid,
-        				"scriptname":scriptName,
-        				"answerKey":results[res].answerkeyfield,
-        				"answerField":results[res].answerfield,
-        				"answerTable":results[res].answertable,
-        				"answerFieldValue":0,
-        				"insertNewRow":results[res].insertnewrow,
-        				"isDictionary":results[res].isdictionary,
-        				"formatId":results[res].formatid,
-        				"errResponse":results[res].errorresponse
-                	};
-                	QnAObjArr.push(qnaObj);
-                }
-                
-                console.log('DBUtils.getScriptDetails The QnAObjArra Size: ', QnAObjArr.length);
-                
+    	} else {
+    
+			console.log('DBUtils.getScriptDetails results gound. results length is : '+results.length);
+			if (results !== null && results.length > 0) {
+			
+				qnaObj = {
+					"questionId": results[0].questionid,
+					"question": results[0].question,
+					"answer": "",
+					"processed": false,
+					"uniqueStepId":results[0].uniquestepid,
+					"scriptname":scriptName,
+					"answerKey":results[0].answerkeyfield,
+					"answerField":results[0].answerfield,
+					"answerTable":results[0].answertable,
+					"answerFieldValue":0,
+					"insertNewRow":results[0].insertnewrow,
+					"isDictionary":results[0].isdictionary,
+					"formatId":results[0].formatid,
+					"errResponse":results[0].errorresponse
+				};
+			
+				console.log('DBUtils.getScriptDetails The QnA Objects is : ',qnaObj);
 			}
+                
 		}
 		closeConnection(connection); //all is done so releasing the resources
 		//callback response with QnA object array
-		helper.processQnAResponse(slotValue, QnAObjArr, session, callback);
+		helper.processQnAResponse(qnaObj, session, callback);
 	});
 }
 
 //VG 2/28|Purpose: Read the answers and Insert/Update the Profile
-function setProfileDetails(resArr, qnaObjArr, resArrIndx, session, callback)
-{
-        console.log("DBUtil.setProfileDetails for >>>>> "+resArr.answer);
+function setProfileDetails(qnaObj, session, callback) {
+        console.log("DBUtil.setProfileDetails for >>>>> "+qnaObj.answer);
         var connection = getLogosConnection();
         var sessionAttributes = session.attributes;
         var profileId = sessionAttributes.userProfileId;
         var logosName = sessionAttributes.logosName;
         console.log("DBUtil.setProfileDetails for >>>>> profileId : "+profileId);
-        console.log("DBUtil.setProfileDetails for >>>>> uniquestepid : "+resArr.uniqueStepId);
+        console.log("DBUtil.setProfileDetails for >>>>> uniquestepid : "+qnaObj.uniqueStepId);
+        
+        //profile check query
+        var profChkQuery = "SELECT s.*,q.* from logoshealth.script s, logoshealth.question q where s.questionid=q.questionid and uniquestepid="+qnaObj.uniqueStepId;
+        
+        console.log('DBUtil.setProfileDetails Profile retrieve query is - ' + profChkQuery);
 
         //Check 1: Profile doesn't exist therefore run insert
-        connection.query("SELECT s.*,q.* from logoshealth.script s, logoshealth.question q where s.questionid=q.questionid and uniquestepid="+resArr.uniqueStepId
-                         ,function(error,results,fields) {
+        connection.query(profChkQuery,function(error,results,fields) {
           if(error)  {
                 console.log('The Error is: DBUtil.setProfileDetails - ', error);
           }
@@ -310,7 +337,7 @@ function setProfileDetails(resArr, qnaObjArr, resArrIndx, session, callback)
                                         fldVal = logosName;
                                         break;
                                     default:
-                                        fldVal = resArr.answer;
+                                        fldVal = qnaObj.answer;
                                 } //switch ends here
                                 insertRec=insertRec+","+"'"+fldVal+"'";
                             }
@@ -323,13 +350,12 @@ function setProfileDetails(resArr, qnaObjArr, resArrIndx, session, callback)
                                                                 } else {
                                                                         console.log('The record INSERTED successfully into Profile Table!!');
                                                                         closeConnection(connection);
-                                                                        //getProfileIdByLogosName(resArr, qnaObjArr, session, callback);
-                                                                        getUniqueIdFromAnswerTable(resArr, qnaObjArr, resArrIndx, resArr.answerTable, resArr.answerKey, profileId, session, callback);
+                                                                        getUniqueIdFromAnswerTable(qnaObj, qnaObj.answerTable, qnaObj.answerKey, profileId, session, callback);
                                                                 }
                                                         });
 
                         } else { //insertRow != Yes hence execute update
-                                var updateRec="Update "+tblName+" Set "+vFields+" ='"+resArr.answer+"' Where "+resArr.answerKey+"="+profileId; //resArr.answerFieldValue;
+                                var updateRec="Update "+tblName+" Set "+vFields+" ='"+qnaObj.answer+"' Where "+qnaObj.answerKey+"="+profileId; //resArr.answerFieldValue;
                                 console.log("DBUtil.setProfileDetails - Update STMT >> ",updateRec);
                                 connection = getLogosConnection();
                                 connection.query(updateRec, function (error, results, fields) {
@@ -339,7 +365,7 @@ function setProfileDetails(resArr, qnaObjArr, resArrIndx, session, callback)
                                                                                 console.log('The record UPDATED successfully into Profile Table!!');
                                                                                 closeConnection(connection);
                                                                                 //insert records into Parent Transcript Array - Staging scripts would redirect to Response process
-                                                                                setTranscriptDetailsParent(resArr, qnaObjArr, resArr.answer, session, callback);  
+                                                                                setTranscriptDetailsParent(false, qnaObj, session, callback);  
                                                                         }
                                                                 });
                             }
@@ -347,39 +373,13 @@ function setProfileDetails(resArr, qnaObjArr, resArrIndx, session, callback)
             }
         }); //First Select SQL ends here
 } //Funcion ends here
-    
-function getProfileIdByLogosName(resArr, qnaObjArr, session, callback) {
-	console.log("DBUtil.getProfileIdByLogosName called "+slotVal);
-	var connection = getLogosConnection();
-	var slotVal = resArr.answer;
-	var profileId = "";
-	var sessionAttributes = session.attributes;
-	var query = "SELECT profileid FROM logoshealth.profile where logosname = '"+ sessionAttributes.logosName + "' and accountid = '"+sessionAttributes.userAccId+"'";
-	console.log("DBUtil.getProfileIdByLogosName Select Query is >>> "+query);
-	connection.query(query, function (error, results, fields) {
-		if (error) {
-			console.log('The Error is: ', error);
-		} else {
-			console.log('Get Profile ID select query works with records size '+results.length);
-			if (results !== null && results.length > 0) {
-                profileId = results[0].profileid;
-                console.log("DBUtil.getProfileIdByLogosName - Profile ID retrieved as >>>> "+profileId);
-                sessionAttributes.userProfileId = profileId;
-				session.attributes = sessionAttributes;
-				closeConnection(connection);
-				helper.processQnAResponse(slotVal, qnaObjArr, session, callback);
-            } else {
-            	console.log("DBUtil.getProfileIdByLogosName Results are empty, that mean no profile found which is created just now >>> "+query);
-            }
-		}
-	});
-}
 
-function getUniqueIdFromAnswerTable(resArr, qnaObjArr, resArrIdx, tableNm, colNm, profileId, session, callback) {
-	console.log("DBUtil.getUniqueIdFromAnswerTable called "+slotVal);
+
+function getUniqueIdFromAnswerTable(qnaObj, tableNm, colNm, profileId, session, callback) {
+	console.log("DBUtil.getUniqueIdFromAnswerTable called "+qnaObj.answer);
 	var connection = getLogosConnection();
 	var answerVal = "";
-	var slotVal = resArr.answer;
+	var slotVal = qnaObj.answer;
 	var sessionAttributes = session.attributes;
 	
 	var query = "";
@@ -396,18 +396,17 @@ function getUniqueIdFromAnswerTable(resArr, qnaObjArr, resArrIdx, tableNm, colNm
 		} else {
 			console.log('Get Answer Key Value select query works with records size '+results.length);
 			if (results !== null && results.length > 0) {
-                answerVal = results[0][resArr.answerKey];
+                answerVal = results[0][qnaObj.answerKey];
                 console.log("DBUtil.getUniqueIdFromAnswerTable - ID retrieved as >>>> "+answerVal);
                 if (tableNm != null && tableNm.toLowerCase() == 'profile') {
                 	profileId = results[0].profileid;
-                	sessionAttributes.userProfileId = profileId;
-                	qnaObjArr[resArrIdx].answerFieldValue = answerVal;
-                } else {
-                	qnaObjArr[resArrIdx].answerFieldValue = answerVal;
-                }
-                resArr.answerFieldValue = answerVal;
+                	session.attributes.userProfileId = profileId;
+                } 
+                
+                qnaObj.answerFieldValue = answerVal;
 				closeConnection(connection);
-				setTranscriptDetailsParent(resArr, qnaObjArr, slotVal, session, callback);  //insert records into Parent Transcript Array
+				
+				setTranscriptDetailsParent(true, qnaObj, session, callback);  //insert records into Parent Transcript Array
             } else {
             	console.log("DBUtil.getUniqueIdFromAnswerTable Results are empty, that mean no profile found which is created just now >>> "+query);
             }
@@ -415,11 +414,11 @@ function getUniqueIdFromAnswerTable(resArr, qnaObjArr, resArrIdx, tableNm, colNm
 	});
 }
 
-function getDictionaryId(tempObj, qnObj, indx, value, processor, session, callback) {
+function getDictionaryId(qnaObj, value, processor, session, callback) {
 	console.log("DBUtil.getDictionaryId called to get Dictionary ID for value >>>  "+value);
 	var connection = getLogosConnection();
 	var dictId = "";
-	var fields = tempObj.answerField.split(",");
+	var fields = qnaObj.answerField.split(",");
 	var field = fields[fields.length-1];
 	var query = "SELECT dictionaryid FROM logoshealth.dictionary WHERE fieldname = '"+field.trim()+"' and (value = '"+value+"' OR dictionarycode = '"+value+"' )";
 	console.log("DBUtil.getDictionaryId Select Query is >>> "+query);
@@ -433,25 +432,24 @@ function getDictionaryId(tempObj, qnObj, indx, value, processor, session, callba
 			if (results !== null && results.length > 0) {
                 dictId = results[0].dictionaryid;
        			console.log("DBUtil.getDictionaryId - Dictionary ID retrieved as >>>> "+dictId);
-       			tempObj.answer = dictId;
-    			qnObj[indx].answer = dictId;
-    			console.log(' DBUtil.getDictionaryId Found: Set Dictionary Id to temp and QnA Objects >>>>>> '+tempObj.answer);
+       			qnaObj.answer = dictId;
+    			console.log(' DBUtil.getDictionaryId Found: Set Dictionary Id to temp and QnA Objects >>>>>> '+qnaObj.answer);
     			closeConnection(connection);
-    			setProfileDetails(tempObj, qnObj, indx, session, callback);
+    			setProfileDetails(qnaObj, session, callback);
             } else {
-            	console.log("DBUtil.getDictionaryId - RegEx threw error for user input >>>> "+tempObj.errResponse);
+            	console.log("DBUtil.getDictionaryId - RegEx threw error for user input >>>> "+qnaObj.errResponse);
     			//process error response
-    			helper.processErrResponse(tempObj.errResponse, processor, session, callback);
+    			helper.processErrResponse(qnaObj.errResponse, processor, session, callback);
             }
 		}
 	});
 }
 
-function validateUserInput(tempObj, qnObj, indx, value, processor, session, callback) {
+function validateUserInput(qnaObj, value, processor, session, callback) {
 	console.log("DBUtil.validateUserInput called to get regex script for value >>>  "+value);
 	var connection = getLogosConnection();
 	var regEx = "";
-	var query = "select formatcode from logoshealth.format where formatid="+tempObj.formatId;
+	var query = "select formatcode from logoshealth.format where formatid="+qnaObj.formatId;
 	console.log("DBUtil.validateUserInput Select Query is >>> "+query);
 	
 	connection.query(query, function (error, results, fields) {
@@ -464,17 +462,17 @@ function validateUserInput(tempObj, qnObj, indx, value, processor, session, call
                 regEx = results[0].formatcode;
                 var pattern = "";
                 
-                if (tempObj.formatId == 1) {
+                if (qnaObj.formatId == 1) {
                 	//validate with zipcode
                 	pattern = new RegExp("^[0-9]{5}(?:-[0-9]{4})?$");
-                } else if (tempObj.formatId == 2) {
+                } else if (qnaObj.formatId == 2) {
                 	//validate with phone number format
                 	pattern = new RegExp("^\\d{10}$");
-                } else if (tempObj.formatId == 3) {
-                	//validate with phone number format
+                } else if (qnaObj.formatId == 3) {
+                	//validate with allowed data format yyyy-mm-dd TODO: actual date conversion is required.
                 	pattern = new RegExp("date_format()");
-                } else if (tempObj.formatId == 4) {
-                	//validate with phone number format
+                } else if (qnaObj.formatId == 4) {
+                	//validate 9 digits
                 	pattern = new RegExp("^\\d{9}$");
                 }
                 
@@ -482,14 +480,13 @@ function validateUserInput(tempObj, qnObj, indx, value, processor, session, call
        			
        			//var pattern = new RegExp(results[0].formatcode);
        			if (pattern.test(value)) {
-       				tempObj.answer = value;
-    				qnObj[indx].answer = value;
-    				console.log(' LogosHelper.executeCreateProfileQNA Found Q answered: skipping to DB for isnert/update >>>>>> '+tempObj.answer);
-    				setProfileDetails(tempObj, qnObj, indx, session, callback);
+       				qnaObj.answer = value;
+    				console.log(' LogosHelper.executeCreateProfileQNA Found Q answered: skipping to DB for isnert/update >>>>>> '+qnaObj.answer);
+    				setProfileDetails(qnaObj, session, callback);
     			} else {
-    				console.log("DBUtil.validateUserInput - RegEx threw error for user input >>>> "+tempObj.errResponse);
+    				console.log("DBUtil.validateUserInput - RegEx threw error for user input >>>> "+qnaObj.errResponse);
     				//process error response
-    				helper.processErrResponse(tempObj.errResponse, processor, session, callback);
+    				helper.processErrResponse(qnaObj.errResponse, processor, session, callback);
     			}
             } 
 		}
@@ -569,13 +566,44 @@ function getUserProfileByName(userName, accountId, session, callback) {
             if (results !== null && results.length > 0) {
                 console.log("DBUtil.getUserProfileByName Profile ID found as  >>>>>"+results[0].profileid);
                 hasProfile = true;
-                profileComplete = true;
+                profileComplete = results[0].iscomplete;
                 profileId = results[0].profileid;
             }
         }
         connection.end();
-        helper.processNameIntent(userName, profileId, hasProfile, profileComplete, session, callback);
+        
+        session.attributes.logosName = userName;
+        
+        // check if user has completed profile, if yes send them back to main menu
+		// if not bring QnA object with current or last save point and respond. 
+        if (profileComplete || !hasProfile) {
+        	helper.processNameIntent(userName, profileId, hasProfile, profileComplete, session, callback);
+        } else {
+        	loadStatusFromStaging(userName, profileId, hasProfile, profileComplete, session, callback);
+        }
     });
+}
+
+function loadStatusFromStaging (userName, profileId, hasProfile, profileComplete, session, callback) {
+	console.log("DBUtil.loadStatusFromStaging called with param >>>>> ");
+    var connection = getLogosConnection();
+    var questionId = 0;
+    
+    // Get max available question id from staging using profile id
+    //if no record found that mean user to start with First Question else max +1 question onwards
+    connection.query("select max(uniquestepid) as uniquestepid from logoshealth.stg_script where profileid = "+profileId, function (error, results, fields) {
+	if (error) {
+            console.log('The Error is: ', error);
+    } else {
+		console.log('DBUtil.loadStatusFromStaging - The Staging Question ID found as '+results[0].uniquestepid);
+		if (results.length > 0) {
+			questionId = results[0].uniquestepid + 1;
+		} 
+	}
+        closeConnection(connection); //all is done so releasing the resources
+        var scriptName = "Create a New Primary Profile";
+        getScriptDetails(questionId, scriptName, userName, session, callback);
+	});
 }
 
 function closeConnection(connection) {
