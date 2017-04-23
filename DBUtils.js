@@ -198,18 +198,21 @@ function setTranscriptDetailsChild(newRec, keyId, qnaObj, session, callback){
         var profileId = sessionAttributes.userProfileId;
         var stgRec = {stg_scriptid:keyId, table:qnaObj.answerTable,recordid:qnaObj.answerFieldValue,createdby:profileId,modifiedby:profileId};
         // 1. Insert into STG_Record table
-        connection.query('Insert into logoshealth.stg_records Set ?',stgRec, function (error, results, fields) {
-        if (error) {
-            console.log('The Error is: ', error);
-        } else {
-			console.log('The record inserted into STG_RECORDS successfully!!'+'--'+stgRec);
-			loadStatusFromStaging(session.attributes.logosName, session.attributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
-		}
-        	closeConnection(connection); //all is done so releasing the resources
-		});
+			connection.query('Insert into logoshealth.stg_records Set ?',stgRec, function (error, results, fields) {
+			if (error) {
+				console.log('The Error is: ', error);
+			} else {
+				console.log('The record inserted into STG_RECORDS successfully!!');
+				closeConnection(connection); //all is done so releasing the resources
+				//loadStatusFromStaging(session.attributes.logosName, session.attributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
+				getScriptDetails(qnaObj.questionId+1, qnaObj.scriptname, session.attributes.logosName, session, callback);
+			}
+			
+			});
     } else {
     	console.log('DBUtil.setTranscriptDetailsChild : No new record is required to insert');
-		loadStatusFromStaging(session.attributes.logosName, session.attributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
+		//loadStatusFromStaging(session.attributes.logosName, session.attributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
+		getScriptDetails(qnaObj.questionId+1, qnaObj.scriptname, session.attributes.logosName, session, callback);
     }
     
 }//function ends here
@@ -244,7 +247,7 @@ function getScriptDetails(questionId, scriptName, slotValue, session, callback) 
     
     connection.query(vSQL, function (error, results, fields) {
     	
-    	var qnaObj;
+    	var qnaObj = {};
 		if (error) {
             console.log('DBUtils.getScriptDetails Error. the Error is: ', error);
     	} else {
@@ -269,7 +272,7 @@ function getScriptDetails(questionId, scriptName, slotValue, session, callback) 
 					"errResponse":results[0].errorresponse
 				};
 			
-				console.log('DBUtils.getScriptDetails The QnA Objects is : ',qnaObj);
+				console.log('DBUtils.getScriptDetails The QnA Objects is : '+qnaObj);
 			}
                 
 		}

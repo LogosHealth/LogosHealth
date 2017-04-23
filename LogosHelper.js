@@ -417,7 +417,7 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     var profileId = session.attributes.userProfileId;
     var hasProfile = session.attributes.userHasProfile;
     var hasProfileComplete = session.attributes.profileComplete
-    var processor = 3;
+    var processor = 2;
     var isComplete = true;
     
     if (!hasProfileComplete) {
@@ -435,12 +435,12 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
 			dbUtil.updateProfileDetails(qnaObj, session, callback);
 		}
     } else {
-    	//processResponse(qnaObj, session, callback);
+    	processResponse(qnaObj, session, callback);
     }
 }
 
 function processResponse(qnObj, session, callback) {
-	console.log('LogosHelper.processResponse : CALLED>>> ');
+	console.log('LogosHelper.processResponse : CALLED>>> '+qnObj);
 	
     var sessionAttributes = session.attributes;
     var userName = sessionAttributes.logosName;
