@@ -417,18 +417,18 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     var profileId = session.attributes.userProfileId;
     var hasProfile = session.attributes.userHasProfile;
     var hasProfileComplete = session.attributes.profileComplete
-    var processor = 2;
+    var processor = 3;
     var isComplete = true;
     
     if (!hasProfileComplete) {
     	if (qnaObj.isDictionary !== null && qnaObj.isDictionary.toLowerCase() == 'y') {
     		console.log(' LogosHelper.executeCreateProfileQNA : Field is Dictionary type, get ID >>>>>> '+qnaObj.isDictionary);
-    		//dbUtil.readDictoinaryId(qnaObj, slotValue, processor, session, callback);
-    	} /*else if (qnaObj.formatId && qnaObj.formatId !== null) {
+    		dbUtil.readDictoinaryId(qnaObj, slotValue, processor, session, callback);
+    	} else if (qnaObj.formatId && qnaObj.formatId !== null) {
 			console.log(' LogosHelper.executeCreateProfileQNA : Field has format ID to format user input >>>>>> '+qnaObj.formatId);
 			//validate user input against RegEx formatter, if error throw response otherwise continue
 			dbUtil.validateData(qnaObj, slotValue, processor, session, callback);
-		} */else {
+		} else {
 			qnaObj.answer = slotValue;
 			//insert/update into script table
 			console.log(' LogosHelper.executeCreateProfileQNA Found Q answered: passing to DB for insertion >>>>>> '+qnaObj.answer);
@@ -543,6 +543,3 @@ function handleOpenLogosHealthProfile (event, context, intent, session, callback
 
     callback(session.attributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 }
-
-
-

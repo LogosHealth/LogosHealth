@@ -177,6 +177,7 @@ function getStagingParentId(newRec, qnaObj, session, callback) {
 			if (results !== null && results.length > 0) {
                 stgId = results[0].stg_scriptid;
        			console.log("DBUtil.getStagingParentId - Script ID retrieved as >>>> "+stgId);
+    			
     			setTranscriptDetailsChild(newRec, stgId, qnaObj, session, callback);
             } else {
             	console.log("DBUtil.getDictionaryId - RegEx threw error for user input >>>> "+tempObj.errResponse);
@@ -184,6 +185,7 @@ function getStagingParentId(newRec, qnaObj, session, callback) {
     			helper.processErrResponse("Couldn't find Staging Script Error - Admin Error ", processor, session, callback);
             }
 		}
+		closeConnection(connection); //all is done so releasing the resources
 	});
 }
 
@@ -204,16 +206,14 @@ function setTranscriptDetailsChild(newRec, keyId, qnaObj, session, callback){
 			} else {
 				console.log('The record inserted into STG_RECORDS successfully!!');
 				closeConnection(connection); //all is done so releasing the resources
-				//loadStatusFromStaging(session.attributes.logosName, session.attributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
-				getScriptDetails(qnaObj.questionId+1, qnaObj.scriptname, session.attributes.logosName, session, callback);
+				loadStatusFromStaging(session.attributes.logosName, session.attributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
 			}
 			
 			});
     } else {
     	console.log('DBUtil.setTranscriptDetailsChild : No new record is required to insert');
-		//loadStatusFromStaging(session.attributes.logosName, session.attributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
-		getScriptDetails(qnaObj.questionId+1, qnaObj.scriptname, session.attributes.logosName, session, callback);
-    }
+		loadStatusFromStaging(session.attributes.logosName, session.attributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
+	}
     
 }//function ends here
 
@@ -473,11 +473,12 @@ function validateUserInput(qnaObj, value, processor, session, callback) {
                 	pattern = new RegExp("^\\d{10}$");
                 } else if (qnaObj.formatId == 3) {
                 	//validate with allowed data format yyyy-mm-dd TODO: actual date conversion is required.
-                	pattern = new RegExp("date_format()");
+                	pattern = new RegExp("^\\d{9}$");
+                	//pattern = new RegExp("date_format()");
                 } else if (qnaObj.formatId == 4) {
                 	//validate 9 digits
                 	pattern = new RegExp("^\\d{9}$");
-                }
+                } 
                 
        			console.log("DBUtil.getDictionaryId - RegEx Format retrieved as >>>> "+regEx);
        			
@@ -587,7 +588,7 @@ function getUserProfileByName(userName, accountId, session, callback) {
     });
 }
 
-function loadStatusFromStaging (userName, profileId, hasProfile, profileComplete, session, callback) {
+function loadStatusFromStaging(userName, profileId, hasProfile, profileComplete, session, callback) {
 	console.log("DBUtil.loadStatusFromStaging called with param >>>>> ");
     var connection = getLogosConnection();
     var questionId = 0;
