@@ -98,7 +98,7 @@ exports.validateData = function validateData(qnaObj, value, processor, session, 
  */
 exports.readQuestsionsForBranch = function readQuestsionsForBranch(questionId, scriptName, slotValue, session, callback) {
   	console.log(' DBUtils.readQuestsionsForBranch >>>>>>' +scriptName);
-  	getScriptDetails(questionId, scriptName, slotValue, session, callback);
+  	getScriptDetails(questionId, scriptName, slotValue, session, callback, false);
 };
 
 /**
@@ -232,11 +232,13 @@ function createNewAccountIDFromEmail(vEmail, session, callback, connection)
 }
 
 //VG 2/26|Purpose: To pull script based questions for Alexa Madam
-function getScriptDetails(questionId, scriptName, slotValue, session, callback) {
+function getScriptDetails(questionId, scriptName, slotValue, session, callback, retUser) {
 	
-	console.log("DBUtil.getScriptDetails called with param >>>>> " +questionId);
+	console.log("DBUtil.getScriptDetails called with param >>>>> Question ID " +questionId+ " and return user? "+retUser);
+	
 	var connection = getLogosConnection();
     var vSQL;
+    
 	if (questionId == 0){
         vSQL="SELECT q.*,s.* FROM logoshealth.script s, logoshealth.question q where s.questionid=q.questionid and scriptname='"+scriptName+"' order by uniquestepid asc limit 1";
     }
@@ -253,6 +255,7 @@ function getScriptDetails(questionId, scriptName, slotValue, session, callback) 
     	} else {
     
 			console.log('DBUtils.getScriptDetails results gound. results length is : '+results.length);
+			
 			if (results !== null && results.length > 0) {
 			
 				qnaObj = {
@@ -269,6 +272,7 @@ function getScriptDetails(questionId, scriptName, slotValue, session, callback) 
 					"insertNewRow":results[0].insertnewrow,
 					"isDictionary":results[0].isdictionary,
 					"formatId":results[0].formatid,
+					"retUser":retUser,
 					"errResponse":results[0].errorresponse
 				};
 			
@@ -277,8 +281,9 @@ function getScriptDetails(questionId, scriptName, slotValue, session, callback) 
                 
 		}
 		closeConnection(connection); //all is done so releasing the resources
+		console.log("DBUtil.getScriptDetails : Message send for return user? >>> "+retUser);
 		//callback response with QnA object array
-		helper.processQnAResponse(qnaObj, session, callback);
+		helper.processQnAResponse(qnaObj, session, callback, retUser);
 	});
 }
 
@@ -473,7 +478,7 @@ function validateUserInput(qnaObj, value, processor, session, callback) {
                 	pattern = new RegExp("^\\d{10}$");
                 } else if (qnaObj.formatId == 3) {
                 	//validate with allowed data format yyyy-mm-dd TODO: actual date conversion is required.
-                	pattern = new RegExp("^\\d{9}$");
+                	pattern = new RegExp("^\d{4}-\d{2}-\d{2}$");
                 	//pattern = new RegExp("date_format()");
                 } else if (qnaObj.formatId == 4) {
                 	//validate 9 digits
@@ -589,9 +594,10 @@ function getUserProfileByName(userName, accountId, session, callback) {
 }
 
 function loadStatusFromStaging(userName, profileId, hasProfile, profileComplete, session, callback) {
-	console.log("DBUtil.loadStatusFromStaging called with param >>>>> ");
+	console.log("DBUtil.loadStatusFromStaging called with param >>>>> "+profileId);
     var connection = getLogosConnection();
     var questionId = 0;
+    var retUser = false;
     
     // Get max available question id from staging using profile id
     //if no record found that mean user to start with First Question else max +1 question onwards
@@ -602,11 +608,14 @@ function loadStatusFromStaging(userName, profileId, hasProfile, profileComplete,
 		console.log('DBUtil.loadStatusFromStaging - The Staging Question ID found as '+results[0].uniquestepid);
 		if (results.length > 0) {
 			questionId = results[0].uniquestepid + 1;
+			session.attributes.userProfileId = profileId;
+			retUser = true;
 		} 
 	}
         closeConnection(connection); //all is done so releasing the resources
         var scriptName = "Create a New Primary Profile";
-        getScriptDetails(questionId, scriptName, userName, session, callback);
+        console.log('DBUtil.loadStatusFromStaging - is User returing? '+retUser);
+        getScriptDetails(questionId, scriptName, userName, session, callback, retUser);
 	});
 }
 

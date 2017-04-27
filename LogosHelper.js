@@ -154,9 +154,9 @@ exports.processUserReponse = function processUserReponse(event, context, intent,
   	processIntent(event, context, intent, session, callback);
 };
 
-exports.processQnAResponse = function processQnAResponse(qnaObj, session, callback) {
-  	console.log(' LogosHelper.processQnAResponse >>>>>>');
-  	processResponse(qnaObj, session, callback);
+exports.processQnAResponse = function processQnAResponse(qnaObj, session, callback, retUser) {
+  	console.log(' LogosHelper.processQnAResponse >>>>>>'+retUser);
+  	processResponse(qnaObj, session, callback, retUser);
 };
 
 exports.processErrResponse= function processErrResponse(errorText, processor, session, callback) {
@@ -228,6 +228,8 @@ function processIntent(event, context, intentRequest, session, callback) {
     
     var sessionAttributes = session.attributes; 
     var accountId = sessionAttributes.userAccId;
+    var userName = sessionAttributes.logosName;
+    var retUser = sessionAttributes.retUser;
     
     var slotValue = "";
     if (intentName === 'LaunchIntent') {
@@ -256,15 +258,16 @@ function processIntent(event, context, intentRequest, session, callback) {
     }
     else if (intentName == 'AMAZON.YesIntent')  {   
     	console.log(' AMAZON.YesIntent: Intent  called >>>>>>  '+intentName);
-    	session.attributes.currentProcessor = 2;
-        processAnswerIntent(event, slotValue, accountId, session, callback); 
+    	if (!retUser) {
+    		session.attributes.currentProcessor = 2;
+    	} 
+    	
+    	processAnswerIntent(event, slotValue, accountId, session, callback); 
     }
     else if (intentName == 'AMAZON.NoIntent')  {   
     	console.log(' AMAZON.NoIntent: Intent  called >>>>>>  '+intentName);
-        //user choose to say NO, send him to the main menu
-        processor = 5;
-        processUserGenericInteraction(event, intent, session, callback);   //Temp generic response, in fact user to be shown main menu
-        
+        //user choose to say NO, send him to the main menu for Demo
+        processNameIntentResponse(sessionAttributes.logosName, sessionAttributes.userProfileId, true, false, session, callback);
     }
     else if (intentName == 'AnswerIntent')  {        
 	    slotValue = intent.slots.Answer.value;
@@ -429,18 +432,26 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
 			//validate user input against RegEx formatter, if error throw response otherwise continue
 			dbUtil.validateData(qnaObj, slotValue, processor, session, callback);
 		} else {
-			qnaObj.answer = slotValue;
+			if (qnaObj.formatId == 3) {
+				console.log(" LogosHelper.executeCreateProfileQNA >>>>: Received Date input as "+slotValue);
+				var dtStr = slotValue.split(' ').join('-');
+				console.log(" LogosHelper.executeCreateProfileQNA >>>>: date reconstructed as  "+dtStr);
+				qnaObj.answer = dtStr;
+			} else {
+				qnaObj.answer = slotValue;
+			}
+			
 			//insert/update into script table
 			console.log(' LogosHelper.executeCreateProfileQNA Found Q answered: passing to DB for insertion >>>>>> '+qnaObj.answer);
 			dbUtil.updateProfileDetails(qnaObj, session, callback);
 		}
     } else {
-    	processResponse(qnaObj, session, callback);
+    	processResponse(qnaObj, session, callback, false);
     }
 }
 
-function processResponse(qnObj, session, callback) {
-	console.log('LogosHelper.processResponse : CALLED>>> '+qnObj);
+function processResponse(qnObj, session, callback, retUser) {
+	console.log('LogosHelper.processResponse : CALLED>>> '+retUser);
 	
     var sessionAttributes = session.attributes;
     var userName = sessionAttributes.logosName;
@@ -465,8 +476,15 @@ function processResponse(qnObj, session, callback) {
 	}
 	
 	console.log(' LogosHelper.processResponse >>>>>>: output text is '+quest);
-	var speechOutput = quest;
-    qnObj.processed = true;
+	var speechOutput = "";
+	
+	if (retUser) {
+		speechOutput = 'Hello '+userName+'. Welcome back to Logos Health!. Your profile is incomplete!. Say Yes to continue, No to redirect to main menu. ", " Note. Until your profile completes, your menu options are limited!.';
+		qnObj.processed = false;
+	} else {
+		speechOutput = quest;
+		qnObj.processed = true;
+	}
     
     var cardTitle = 'Profile QNA';
 
@@ -474,7 +492,6 @@ function processResponse(qnObj, session, callback) {
     var shouldEndSession = false;
     session.attributes.currentProcessor = 3;
     session.attributes.qnaObj = qnObj;
-  	console.log(' LogosHelper.processResponse >>>>>>: Speech response going back to user : '+callback);
     callback(session.attributes, buildSpeechResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 }
 
