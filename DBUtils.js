@@ -597,6 +597,9 @@ function loadStatusFromStaging(userName, profileId, hasProfile, profileComplete,
 	console.log("DBUtil.loadStatusFromStaging called with param >>>>> "+profileId);
     var connection = getLogosConnection();
     var questionId = 0;
+    
+    console.log("DBUtil.loadStatusFromStaging called for the first time, is it? "+session.attributes.retUser);
+    
     var retUser = false;
     
     // Get max available question id from staging using profile id
@@ -609,7 +612,9 @@ function loadStatusFromStaging(userName, profileId, hasProfile, profileComplete,
 		if (results.length > 0) {
 			questionId = results[0].uniquestepid + 1;
 			session.attributes.userProfileId = profileId;
-			retUser = true;
+			if (session.attributes.retUser == undefined) {
+    			retUser = true;
+    		}
 		} 
 	}
         closeConnection(connection); //all is done so releasing the resources
