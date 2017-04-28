@@ -232,6 +232,8 @@ function processIntent(event, context, intentRequest, session, callback) {
     var retUser = sessionAttributes.retUser;
     
     var slotValue = "";
+    console.log(' AMAZON.YesIntent: Intent  called >>>>>>  '+intentName);
+    
     if (intentName === 'LaunchIntent') {
     	//Process Generic values if selected from existing
     	slotValue = intent.slots.Answer.value;
@@ -257,11 +259,7 @@ function processIntent(event, context, intentRequest, session, callback) {
 	    //quitRequest(intent, session, callback);  
     }
     else if (intentName == 'AMAZON.YesIntent')  {   
-    	console.log(' AMAZON.YesIntent: Intent  called >>>>>>  '+intentName);
-    	if (!retUser) {
-    		session.attributes.currentProcessor = 2;
-    	} 
-    	
+    	console.log(' AMAZON.YesIntent: Intent  parameter check >>>>>>  '+retUser);
     	processAnswerIntent(event, slotValue, accountId, session, callback); 
     }
     else if (intentName == 'AMAZON.NoIntent')  {   
@@ -422,8 +420,9 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
     var hasProfileComplete = session.attributes.profileComplete
     var processor = 3;
     var isComplete = true;
+    var retUser = session.attributes.retUser;
     
-    if (!hasProfileComplete) {
+    if (!hasProfileComplete && qnaObj.processed) {
     	if (qnaObj.isDictionary !== null && qnaObj.isDictionary.toLowerCase() == 'y') {
     		console.log(' LogosHelper.executeCreateProfileQNA : Field is Dictionary type, get ID >>>>>> '+qnaObj.isDictionary);
     		dbUtil.readDictoinaryId(qnaObj, slotValue, processor, session, callback);
@@ -446,7 +445,7 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
 			dbUtil.updateProfileDetails(qnaObj, session, callback);
 		}
     } else {
-    	processResponse(qnaObj, session, callback, false);
+    	processResponse(qnaObj, session, callback, retUser);
     }
 }
 
@@ -478,9 +477,10 @@ function processResponse(qnObj, session, callback, retUser) {
 	console.log(' LogosHelper.processResponse >>>>>>: output text is '+quest);
 	var speechOutput = "";
 	
-	if (retUser) {
+	if (session.attributes.retUser) {
 		speechOutput = 'Hello '+userName+'. Welcome back to Logos Health!. Your profile is incomplete!. Say Yes to continue, No to redirect to main menu. ", " Note. Until your profile completes, your menu options are limited!.';
 		qnObj.processed = false;
+		session.attributes.retUser = false;
 	} else {
 		speechOutput = quest;
 		qnObj.processed = true;

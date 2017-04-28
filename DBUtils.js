@@ -272,7 +272,6 @@ function getScriptDetails(questionId, scriptName, slotValue, session, callback, 
 					"insertNewRow":results[0].insertnewrow,
 					"isDictionary":results[0].isdictionary,
 					"formatId":results[0].formatid,
-					"retUser":retUser,
 					"errResponse":results[0].errorresponse
 				};
 			
@@ -282,6 +281,7 @@ function getScriptDetails(questionId, scriptName, slotValue, session, callback, 
 		}
 		closeConnection(connection); //all is done so releasing the resources
 		console.log("DBUtil.getScriptDetails : Message send for return user? >>> "+retUser);
+		session.attributes.retUser = retUser;
 		//callback response with QnA object array
 		helper.processQnAResponse(qnaObj, session, callback, retUser);
 	});
