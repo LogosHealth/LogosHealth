@@ -206,13 +206,21 @@ function setTranscriptDetailsChild(newRec, keyId, qnaObj, session, callback){
 			} else {
 				console.log('The record inserted into STG_RECORDS successfully!!');
 				closeConnection(connection); //all is done so releasing the resources
-				loadStatusFromStaging(session.attributes.logosName, session.attributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
+				if (qnaObj.eventSpecific != null && qnaObj.eventSpecific.toLowerCase() == 'y') {
+					getEventDetails(qnaObj, session, callback);
+				} else {
+					loadStatusFromStaging(session.attributes.logosName, session.attributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
+				}
 			}
 			
 			});
     } else {
     	console.log('DBUtil.setTranscriptDetailsChild : No new record is required to insert');
-		loadStatusFromStaging(session.attributes.logosName, session.attributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
+		if (qnaObj.eventSpecific != null && qnaObj.eventSpecific.toLowerCase() == 'y') {
+				getEventDetails(qnaObj, session, callback);
+		} else {
+				loadStatusFromStaging(session.attributes.logosName, session.attributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
+		}
 	}
     
 }//function ends here
@@ -228,8 +236,68 @@ function createNewAccountIDFromEmail(vEmail, session, callback, connection)
 			console.log('The record seems inserted successfully and now calling LoadAccountIDFromEmail again!!');
 			loadAccountIDFromEmail(vEmail, session, callback); //Semi-Recursive call. New buzzword from VG.
 		}
-		});
+	});
 }
+
+
+//VG 4/30|Purpose: To pull event based questions
+function getEventDetails(qnaObj, session, callback) {
+	console.log("DBUtil.getEventDetails called with param >>>>> SQL Query is " +qnaObj.questionid);
+	
+	var questionId = qnaObj.questionid ;
+	var answerFieldValue = qnaObj.answerFieldValue;
+	var connection = getLogosConnection();
+    var vSQL;
+    vSQL="select * from logoshealth.eventquestion where questionid="+questionId+ " and event='"+answerFieldValue+"' order by eventscriptsequence asc";
+    
+    console.log("DBUtil.getEventDetails called with param >>>>> SQL Query is " +vSQL);
+    
+    connection.query(vSQL, function (error, results, fields) {
+        if (error) {
+            console.log('DBUtils.getEventDetails Error. the Error is: ', error);
+    	} else {
+    		console.log('DBUtils.getEventDetails results gound. results length is : '+results.length);
+			if (results !== null && results.length > 0)  {
+                closeConnection(connection); //all is done so releasing the resources
+                console.log("DBUtil.getEventDetails : "+results.length);
+                
+                //pull event questions into an array and set them back to QnAObject under session
+                var eventQnaObj = {};
+                var eventObjArr = [];
+                
+                for (var res in results) {
+                	eventQnaObj = {
+                		"questionId": results[res].eventquestionid==null?"":results[res].eventquestionid,
+        				"questionVer": results[res].eventquestionversion==null?"":results[res].eventquestionversion,
+        				"answer": "",
+        				"processed": false,
+        				"questionVersion":results[res].questionversion==null?"":results[res].questionversion,
+        				"event":results[res].event==null?"":results[res].event,
+        				"eventScriptSeq":results[res].eventscriptsequence==null?"":results[res].eventscriptsequence,
+        				"eventQuestion":results[res].question==null?"":results[res].question,
+        				"eventFunction":results[res].eventfunction==null?"":results[res].eventfunction,
+        				"eventFunVar":results[res].eventfuncionvariables==null?"":results[res].eventfuncionvariables,
+        				"answerTable":results[res].answertable==null?"":results[res].answertable,
+        				"answerKeyField":results[res].answerkeyfield==null?"":results[res].answertable,
+        				"answerField":results[res].answerfield==null?"":results[res].answerfield,
+        				"isDictionary":results[res].isdictionary==null?"":results[res].isdictionary,
+        				"formatId":results[res].formatid==null?"":results[res].formatid,
+        				"isMultiEntry":results[res].multientry==null?"":results[res].multientry,
+        				"isOnlyOnce":results[res].onlyonce==null?"":results[res].onlyonce,
+        				"isInsertNewRow":results[res].insertnewrow==null?"":results[res].insertnewrow,
+        				"errResponse":results[res].errorresponse==null?"":results[res].errorresponse
+                	};
+                	eventObjArr.push(eventQnaObj);
+                }
+                
+                qnaObj.eventQnAObj = eventObjArr;
+                
+                //callback response with QnA object array
+                helper.processQnAResponse(qnaObj, session, callback, false);
+            }
+        }
+    });
+}//Function getEventDetails() ends here
 
 //VG 2/26|Purpose: To pull script based questions for Alexa Madam
 function getScriptDetails(questionId, scriptName, slotValue, session, callback, retUser) {
@@ -250,6 +318,7 @@ function getScriptDetails(questionId, scriptName, slotValue, session, callback, 
     connection.query(vSQL, function (error, results, fields) {
     	
     	var qnaObj = {};
+    	var eventQNArr = [];
 		if (error) {
             console.log('DBUtils.getScriptDetails Error. the Error is: ', error);
     	} else {
@@ -272,12 +341,13 @@ function getScriptDetails(questionId, scriptName, slotValue, session, callback, 
 					"insertNewRow":results[0].insertnewrow,
 					"isDictionary":results[0].isdictionary,
 					"formatId":results[0].formatid,
+					"eventSpecific":results[0].iseventspecific,
+					"eventQNArr":eventQNArr,
 					"errResponse":results[0].errorresponse
 				};
 			
 				console.log('DBUtils.getScriptDetails The QnA Objects is : '+qnaObj);
 			}
-                
 		}
 		closeConnection(connection); //all is done so releasing the resources
 		console.log("DBUtil.getScriptDetails : Message send for return user? >>> "+retUser);
@@ -319,12 +389,21 @@ function setProfileDetails(qnaObj, session, callback) {
                         //profileid, dateofmeasure, weight
                         if(results[0].insertnewrow == 'Y') {
                             //vFields=vFields.split(","); //This will split based on the comma
-                            insertRec = "Insert into "+tblName+"(createdby,modifiedby";
+                            if (tblName != null && tblName.toLowerCase() == 'profile') {
+                            	insertRec = "Insert into "+tblName+"(createdby,modifiedby,primaryflag";
+                            } else {
+                            	insertRec = "Insert into "+tblName+"(createdby,modifiedby";
+                            }
+                            
                             for (var i = 0; i < vFields.length; i++) {
                                 console.log('The vField value in: DBUtil.setProfileDetails - ' + tblName+' >> and field split '+vFields[i]);
                                 insertRec = insertRec+","+vFields[i];
                             }
-                            insertRec=insertRec+") values('1','1'";
+                            if (tblName != null && tblName.toLowerCase() == 'profile') {
+                            	insertRec=insertRec+") values('1','1','Y'";
+                            } else {
+                            	insertRec=insertRec+") values('1','1'";
+                            }
                             //+",'"+resArr.answer+"','"+resArr.answer+"')";
                             console.log("DBUtil.setProfileDetails - Insert STMT >> i="+i);
                             //Add the values for the columns now
@@ -392,7 +471,7 @@ function getUniqueIdFromAnswerTable(qnaObj, tableNm, colNm, profileId, session, 
 	
 	var query = "";
 	if (tableNm != null && tableNm.toLowerCase() == 'profile') {
-		query = "SELECT "+colNm+" FROM "+tableNm+" where logosname = '"+ sessionAttributes.logosName + "' and accountid = '"+sessionAttributes.userAccId+"'";
+		query = "SELECT "+colNm+", primaryflag FROM "+tableNm+" where logosname = '"+ sessionAttributes.logosName + "' and accountid = '"+sessionAttributes.userAccId+"'";
 	} else {
 		query = "SELECT "+colNm+" FROM "+tableNm+" where profileid = '"+profileId+"'";
 	}
@@ -409,6 +488,9 @@ function getUniqueIdFromAnswerTable(qnaObj, tableNm, colNm, profileId, session, 
                 if (tableNm != null && tableNm.toLowerCase() == 'profile') {
                 	profileId = results[0].profileid;
                 	session.attributes.userProfileId = profileId;
+                	if (results[0].primaryflag.toLowerCase() == 'y') {
+                		session.attributes.isPrimaryProfile = true;
+                	}
                 } 
                 
                 qnaObj.answerFieldValue = answerVal;
@@ -567,6 +649,7 @@ function getUserProfileByName(userName, accountId, session, callback) {
 	var hasProfile = false;
 	var profileComplete = false;
 	var profileId = 0;
+	var isPrimary = false;
 	console.log("DBUtil.getUserProfileByName - Initiating SQL call ");
 	connection.query("SELECT * FROM logoshealth.profile where logosname = '"+userName+ "' and accountid = '"+accountId+"'", function (error, results, fields) {
         if (error) {
@@ -577,11 +660,15 @@ function getUserProfileByName(userName, accountId, session, callback) {
                 hasProfile = true;
                 profileComplete = results[0].iscomplete;
                 profileId = results[0].profileid;
+                if (results[0].primaryflag.toLowerCase() == 'y') {
+                	isPrimary = true;
+                }
             }
         }
         connection.end();
         
         session.attributes.logosName = userName;
+        session.attributes.primary = isPrimary;
         
         // check if user has completed profile, if yes send them back to main menu
 		// if not bring QnA object with current or last save point and respond. 
