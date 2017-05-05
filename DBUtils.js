@@ -361,11 +361,15 @@ function getScriptDetails(questionId, scriptName, slotValue, session, callback, 
 function setProfileDetails(qnaObj, session, callback) {
         console.log("DBUtil.setProfileDetails for >>>>> "+qnaObj.answer);
         var connection = getLogosConnection();
+        
         var sessionAttributes = session.attributes;
         var profileId = sessionAttributes.userProfileId;
         var logosName = sessionAttributes.logosName;
+        var isPrimary = session.attributes.isPrimaryProfile;
+        
         console.log("DBUtil.setProfileDetails for >>>>> profileId : "+profileId);
         console.log("DBUtil.setProfileDetails for >>>>> uniquestepid : "+qnaObj.uniqueStepId);
+        console.log("DBUtil.setProfileDetails for >>>>> is Primary account?? : "+isPrimary);
         
         //profile check query
         var profChkQuery = "SELECT s.*,q.* from logoshealth.script s, logoshealth.question q where s.questionid=q.questionid and uniquestepid="+qnaObj.uniqueStepId;
@@ -400,7 +404,11 @@ function setProfileDetails(qnaObj, session, callback) {
                                 insertRec = insertRec+","+vFields[i];
                             }
                             if (tblName != null && tblName.toLowerCase() == 'profile') {
-                            	insertRec=insertRec+") values('1','1','Y'";
+                            	var pri = 'N';
+                            	if (isPrimary) {
+                            		pri = 'Y';
+                            	}
+                            	insertRec=insertRec+") values('1','1','"+pri+"'";
                             } else {
                             	insertRec=insertRec+") values('1','1'";
                             }
@@ -651,7 +659,7 @@ function getUserProfileByName(userName, accountId, session, callback) {
 	var profileId = 0;
 	var isPrimary = false;
 	console.log("DBUtil.getUserProfileByName - Initiating SQL call ");
-	connection.query("SELECT * FROM logoshealth.profile where logosname = '"+userName+ "' and accountid = '"+accountId+"'", function (error, results, fields) {
+	connection.query("SELECT * FROM logoshealth.profile where logosname = '"+userName+ "' and accountid = "+accountId, function (error, results, fields) {
         if (error) {
             console.log('The Error is: ', error);
         } else {
@@ -667,12 +675,48 @@ function getUserProfileByName(userName, accountId, session, callback) {
         }
         connection.end();
         
+        session.attributes.userAccId = accountId;
+        session.attributes.userProfileId = profileId;
+        session.attributes.userHasProfile = hasProfile;
+        session.attributes.profileComplete = profileComplete;
         session.attributes.logosName = userName;
-        session.attributes.primary = isPrimary;
+        session.attributes.isPrimaryProfile = isPrimary;
+        session.attributes.qnaObj = {};
         
         // check if user has completed profile, if yes send them back to main menu
 		// if not bring QnA object with current or last save point and respond. 
-        if (profileComplete || !hasProfile) {
+        if (profileComplete) {
+        	helper.processNameIntent(userName, profileId, hasProfile, profileComplete, session, callback);
+        } else {
+        	isPrimaryProfile(userName, profileId, hasProfile, profileComplete, accountId, session, callback);
+        } 
+    });
+}
+
+function isPrimaryProfile(userName, profileId, hasProfile, profileComplete, accountId, session, callback) {
+    console.log("DBUtil.isPrimaryProfile called with param >>>>> "+userName+" and "+accountId);
+    
+	var connection = getLogosConnection();
+	var isPrimary = false;
+	var sql = " select * from logoshealth.profile where accountid = 1 and lower(primaryflag) = 'y'";
+	
+	console.log("DBUtil.isPrimaryProfile - Initiating SQL call ");
+	console.log("DBUtil.isPrimaryProfile: Checking primary account SQL is >>>>>> "+sql);
+	
+	connection.query(sql, function (error, results, fields) {
+        if (error) {
+            console.log('The Error is: ', error);
+        } else {
+            if (results !== null && results.length == 0) {
+                console.log("DBUtil.isPrimaryProfile - Looks like no Profile for this account, so its a Primary Account >>>>>"+session.attributes.isPrimaryProfile);
+                isPrimary = true;
+            } 
+        }
+        connection.end();
+        
+        session.attributes.isPrimaryProfile = isPrimary;
+        
+        if (!hasProfile) {
         	helper.processNameIntent(userName, profileId, hasProfile, profileComplete, session, callback);
         } else {
         	loadStatusFromStaging(userName, profileId, hasProfile, profileComplete, session, callback);
