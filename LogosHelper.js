@@ -265,9 +265,7 @@ function processIntent(event, context, intentRequest, session, callback) {
     else if (intentName == 'AMAZON.NoIntent')  {   
     	console.log(' AMAZON.NoIntent: Intent  called >>>>>>  '+intentName);
         //user choose to say NO, send him to the main menu for Demo
-        session.attributes.userHasProfile = true;
-        session.attributes.profileComplete = false;
-        processNameIntentResponse(sessionAttributes.logosName, sessionAttributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
+        processNameIntentResponse(sessionAttributes.logosName, sessionAttributes.userProfileId, true, false, session, callback);
     }
     else if (intentName == 'AnswerIntent')  {        
 	    slotValue = intent.slots.Answer.value;
@@ -289,7 +287,6 @@ function processWelcomeResponse(accountid, session, callback ) {
     		'userAccId':accountid,
     		'userProfileId':0,
     		'logosName':'',
-    		'isPrimaryProfile':false,
     		'userHasProfile':false,
     		'profileComplete': false,
     		'qnaObj':qnObj
@@ -337,7 +334,17 @@ function processNameIntentResponse(userName, profileId, hasProfile, profileCompl
     }
     
     //set session attributes
-    session.attributes.currentProcessor = processor;
+    var sessionAttributes = {
+    		'currentProcessor':processor,
+    		'userAccId':accountId,
+    		'userProfileId':profileId,
+    		'logosName':userName,
+    		'userHasProfile':hasProfile,
+    		'profileComplete': profileComplete,
+    		'qnaObj':qnObj
+    };
+    
+    session.attributes = sessionAttributes;
     
     processMenuResponse(speechOutput, session, callback);
 

@@ -361,15 +361,11 @@ function getScriptDetails(questionId, scriptName, slotValue, session, callback, 
 function setProfileDetails(qnaObj, session, callback) {
         console.log("DBUtil.setProfileDetails for >>>>> "+qnaObj.answer);
         var connection = getLogosConnection();
-        
         var sessionAttributes = session.attributes;
         var profileId = sessionAttributes.userProfileId;
         var logosName = sessionAttributes.logosName;
-        var isPrimary = session.attributes.isPrimaryProfile;
-        
         console.log("DBUtil.setProfileDetails for >>>>> profileId : "+profileId);
         console.log("DBUtil.setProfileDetails for >>>>> uniquestepid : "+qnaObj.uniqueStepId);
-        console.log("DBUtil.setProfileDetails for >>>>> is Primary account?? : "+isPrimary);
         
         //profile check query
         var profChkQuery = "SELECT s.*,q.* from logoshealth.script s, logoshealth.question q where s.questionid=q.questionid and uniquestepid="+qnaObj.uniqueStepId;
@@ -393,25 +389,12 @@ function setProfileDetails(qnaObj, session, callback) {
                         //profileid, dateofmeasure, weight
                         if(results[0].insertnewrow == 'Y') {
                             //vFields=vFields.split(","); //This will split based on the comma
-                            if (tblName != null && tblName.toLowerCase() == 'profile') {
-                            	insertRec = "Insert into "+tblName+"(createdby,modifiedby,primaryflag";
-                            } else {
-                            	insertRec = "Insert into "+tblName+"(createdby,modifiedby";
-                            }
-                            
+                            insertRec = "Insert into "+tblName+"(createdby,modifiedby";
                             for (var i = 0; i < vFields.length; i++) {
                                 console.log('The vField value in: DBUtil.setProfileDetails - ' + tblName+' >> and field split '+vFields[i]);
                                 insertRec = insertRec+","+vFields[i];
                             }
-                            if (tblName != null && tblName.toLowerCase() == 'profile') {
-                            	var pri = 'N';
-                            	if (isPrimary) {
-                            		pri = 'Y';
-                            	}
-                            	insertRec=insertRec+") values('1','1','"+pri+"'";
-                            } else {
-                            	insertRec=insertRec+") values('1','1'";
-                            }
+                            insertRec=insertRec+") values('1','1'";
                             //+",'"+resArr.answer+"','"+resArr.answer+"')";
                             console.log("DBUtil.setProfileDetails - Insert STMT >> i="+i);
                             //Add the values for the columns now
@@ -479,7 +462,7 @@ function getUniqueIdFromAnswerTable(qnaObj, tableNm, colNm, profileId, session, 
 	
 	var query = "";
 	if (tableNm != null && tableNm.toLowerCase() == 'profile') {
-		query = "SELECT "+colNm+", primaryflag FROM "+tableNm+" where logosname = '"+ sessionAttributes.logosName + "' and accountid = '"+sessionAttributes.userAccId+"'";
+		query = "SELECT "+colNm+" FROM "+tableNm+" where logosname = '"+ sessionAttributes.logosName + "' and accountid = '"+sessionAttributes.userAccId+"'";
 	} else {
 		query = "SELECT "+colNm+" FROM "+tableNm+" where profileid = '"+profileId+"'";
 	}
@@ -496,9 +479,6 @@ function getUniqueIdFromAnswerTable(qnaObj, tableNm, colNm, profileId, session, 
                 if (tableNm != null && tableNm.toLowerCase() == 'profile') {
                 	profileId = results[0].profileid;
                 	session.attributes.userProfileId = profileId;
-                	if (results[0].primaryflag.toLowerCase() == 'y') {
-                		session.attributes.isPrimaryProfile = true;
-                	}
                 } 
                 
                 qnaObj.answerFieldValue = answerVal;
@@ -659,7 +639,7 @@ function getUserProfileByName(userName, accountId, session, callback) {
 	var profileId = 0;
 	var isPrimary = false;
 	console.log("DBUtil.getUserProfileByName - Initiating SQL call ");
-	connection.query("SELECT * FROM logoshealth.profile where logosname = '"+userName+ "' and accountid = "+accountId, function (error, results, fields) {
+	connection.query("SELECT * FROM logoshealth.profile where logosname = '"+userName+ "' and accountid = '"+accountId+"'", function (error, results, fields) {
         if (error) {
             console.log('The Error is: ', error);
         } else {
@@ -668,55 +648,19 @@ function getUserProfileByName(userName, accountId, session, callback) {
                 hasProfile = true;
                 profileComplete = results[0].iscomplete;
                 profileId = results[0].profileid;
-                if (results[0].primaryflag.toLowerCase() == 'y') {
+                if (results[0].primaryflag == 'y') {
                 	isPrimary = true;
-                }
+                }	
             }
         }
         connection.end();
         
-        session.attributes.userAccId = accountId;
-        session.attributes.userProfileId = profileId;
-        session.attributes.userHasProfile = hasProfile;
-        session.attributes.profileComplete = profileComplete;
         session.attributes.logosName = userName;
-        session.attributes.isPrimaryProfile = isPrimary;
-        session.attributes.qnaObj = {};
+        session.attributes.primary = isPrimary;
         
         // check if user has completed profile, if yes send them back to main menu
 		// if not bring QnA object with current or last save point and respond. 
-        if (profileComplete) {
-        	helper.processNameIntent(userName, profileId, hasProfile, profileComplete, session, callback);
-        } else {
-        	isPrimaryProfile(userName, profileId, hasProfile, profileComplete, accountId, session, callback);
-        } 
-    });
-}
-
-function isPrimaryProfile(userName, profileId, hasProfile, profileComplete, accountId, session, callback) {
-    console.log("DBUtil.isPrimaryProfile called with param >>>>> "+userName+" and "+accountId);
-    
-	var connection = getLogosConnection();
-	var isPrimary = false;
-	var sql = " select * from logoshealth.profile where accountid = 1 and lower(primaryflag) = 'y'";
-	
-	console.log("DBUtil.isPrimaryProfile - Initiating SQL call ");
-	console.log("DBUtil.isPrimaryProfile: Checking primary account SQL is >>>>>> "+sql);
-	
-	connection.query(sql, function (error, results, fields) {
-        if (error) {
-            console.log('The Error is: ', error);
-        } else {
-            if (results !== null && results.length == 0) {
-                console.log("DBUtil.isPrimaryProfile - Looks like no Profile for this account, so its a Primary Account >>>>>"+session.attributes.isPrimaryProfile);
-                isPrimary = true;
-            } 
-        }
-        connection.end();
-        
-        session.attributes.isPrimaryProfile = isPrimary;
-        
-        if (!hasProfile) {
+        if (profileComplete || !hasProfile) {
         	helper.processNameIntent(userName, profileId, hasProfile, profileComplete, session, callback);
         } else {
         	loadStatusFromStaging(userName, profileId, hasProfile, profileComplete, session, callback);
@@ -732,6 +676,7 @@ function loadStatusFromStaging(userName, profileId, hasProfile, profileComplete,
     console.log("DBUtil.loadStatusFromStaging called for the first time, is it? "+session.attributes.retUser);
     
     var retUser = false;
+    var isPrimary = session.attributes.isPrimaryProfile;
     
     // Get max available question id from staging using profile id
     //if no record found that mean user to start with First Question else max +1 question onwards
@@ -750,7 +695,12 @@ function loadStatusFromStaging(userName, profileId, hasProfile, profileComplete,
 	}
         closeConnection(connection); //all is done so releasing the resources
         var scriptName = "Create a New Primary Profile";
-        console.log('DBUtil.loadStatusFromStaging - is User returing? '+retUser);
+        
+        if (!isPrimary) {
+        	scriptName = "Create a New Profile - Not primary - User adding own record";
+        }
+        
+        console.log('DBUtil.loadStatusFromStaging - is User returning? '+retUser);
         getScriptDetails(questionId, scriptName, userName, session, callback, retUser);
 	});
 }
