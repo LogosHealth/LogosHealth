@@ -299,6 +299,76 @@ function getEventDetails(qnaObj, session, callback) {
     });
 }//Function getEventDetails() ends here
 
+/*  -- NEW CODE SENTBY VIKRAM, YET TO MERGE
+function getEventDetails(qnaObj, session, callback) {
+	console.log("DBUtil.getEventDetails called with param >>>>> SQL Query is " +qnaObj.questionid);
+	
+	var questionId = qnaObj.questionid ;
+	var answerFieldValue = qnaObj.answerFieldValue;
+	var connection = getLogosConnection();
+    var vSQL;
+    vSQL="select * from logoshealth.eventquestion where questionid="+questionId+ " and event='"+answerFieldValue+"' order by eventscriptsequence asc";
+    
+    console.log("DBUtil.getEventDetails called with param >>>>> SQL Query is " +vSQL);
+    
+    connection.query(vSQL, function (error, results, fields) {
+        if (error) {
+            console.log('DBUtils.getEventDetails Error. the Error is: ', error);
+    	} else {
+    		console.log('DBUtils.getEventDetails results gound. results length is : '+results.length);
+			if (results !== null && results.length > 0)  {
+                //Execute eventFunction if the answerFiedlValue=Yes and eventFunction is !NULL
+                if(results.event=='Yes' && results.eventFunction !==null){
+                    var vEventScript = results.eventFunction.replace('fromprofile',qnaObj.primaryProfileID);
+                    vEventScript = vEventScript.replace('toprofile',qnaObj.secondryProfileID);
+                    connection.query(vEventScript, function (error) {
+                    if (error) {
+                        console.log('DBUtils.getEventDetails eventFunction Error. the Error is: ', error);
+                    } 
+                );}
+                }
+                closeConnection(connection); //all is done so releasing the resources
+                console.log("DBUtil.getEventDetails : "+results.length);
+                
+                //pull event questions into an array and set them back to QnAObject under session
+                var eventQnaObj = {};
+                var eventObjArr = [];
+                
+                for (var res in results) {
+                	eventQnaObj = {
+                		"questionId": results[res].eventquestionid==null?"":results[res].eventquestionid,
+        				"questionVer": results[res].eventquestionversion?null?"":results[res].eventquestionversion,
+        				"answer": "",
+        				"processed": false,
+        				"questionVersion":results[res].questionversion==null?"":results[res].questionversion,
+        				"event":results[res].event==null?"":results[res].event,
+        				"eventScriptSeq":results[res].eventscriptsequence==null?"":results[res].eventscriptsequence,
+        				"eventQuestion":results[res].question==null?"":results[res].question,
+        				"eventFunction":results[res].eventfunction==null?"":results[res].eventfunction,
+        				"eventFunVar":results[res].eventfuncionvariables==null?"":results[res].eventfuncionvariables,
+        				"answerTable":results[res].answertable==null?"":,
+        				"answerKeyField":results[res].answerkeyfield==null?"":results[res].answertable,
+        				"answerField":results[res].answerfield==null?"":results[res].answerfield,
+        				"isDictionary":results[res].isdictionary==null?"":results[res].isdictionary,
+        				"formatId":results[res].formatid==null?"":results[res].formatid,
+        				"isMultiEntry":results[res].multientry==null?"":,
+        				"isOnlyOnce":results[res].onlyonce==null?"":results[res].onlyonce,
+        				"isInsertNewRow":results[res].insertnewrow==null?"":results[res].insertnewrow,
+        				"errResponse":results[res].errorresponse==null?"":results[res].errorresponse
+                	};
+                	eventObjArr.push(eventQnaObj);
+                }
+                
+                qnaObj.eventQnAObj = eventObjArr;
+                
+                //callback response with QnA object array
+                helper.processQnAResponse(qnaObj, session, callback, false);
+            }
+        }
+}//Function getEventDetails() ends here
+
+*/
+
 //VG 2/26|Purpose: To pull script based questions for Alexa Madam
 function getScriptDetails(questionId, scriptName, slotValue, session, callback, retUser) {
 	
@@ -681,20 +751,22 @@ function loadStatusFromStaging(userName, profileId, hasProfile, profileComplete,
     // Get max available question id from staging using profile id
     //if no record found that mean user to start with First Question else max +1 question onwards
     connection.query("select max(uniquestepid) as uniquestepid from logoshealth.stg_script where profileid = "+profileId, function (error, results, fields) {
-	if (error) {
-            console.log('The Error is: ', error);
-    } else {
-		console.log('DBUtil.loadStatusFromStaging - The Staging Question ID found as '+results[0].uniquestepid);
-		if (results.length > 0) {
-			questionId = results[0].uniquestepid + 1;
-			session.attributes.userProfileId = profileId;
-			if (session.attributes.retUser == undefined) {
-    			retUser = true;
-    		}
-		} 
-	}
+		if (error) {
+				console.log('The Error is: ', error);
+		} else {
+			console.log('DBUtil.loadStatusFromStaging - The Staging Question ID found as '+results[0].uniquestepid);
+			if (results.length > 0) {
+				questionId = results[0].uniquestepid + 1;
+				session.attributes.userProfileId = profileId;
+				if (session.attributes.retUser == undefined) {
+					retUser = true;
+				}
+			} 
+		}
         closeConnection(connection); //all is done so releasing the resources
         var scriptName = "Create a New Primary Profile";
+        
+        console.log("DBUtil.loadStatusFromStaging : Checking if User is primary  "+isPrimary);
         
         if (!isPrimary) {
         	scriptName = "Create a New Profile - Not primary - User adding own record";
