@@ -260,6 +260,7 @@ function processIntent(event, context, intentRequest, session, callback) {
     }
     else if (intentName == 'AMAZON.YesIntent')  {   
     	console.log(' AMAZON.YesIntent: Intent  parameter check >>>>>>  '+retUser);
+    	slotValue = "yes";
     	processAnswerIntent(event, slotValue, accountId, session, callback); 
     }
     else if (intentName == 'AMAZON.NoIntent')  {   
@@ -432,7 +433,7 @@ function processUserGenericInteraction (session, callback) {
 }
 
 function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
-    console.log(' LogosHelper.executeCreateProfileQNA >>>>>> '+slotValue);
+    console.log(' LogosHelper.executeCreateProfileQNA >>>>>> Slot value is '+slotValue);
     
     var speechOutput = 'Thank you for your profile information. Saving profile.';
     //set session attributes
@@ -475,32 +476,36 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
 		var eventQNArr = qnaObj.eventQNArr;
 		var quest = "";
 		console.log(' LogosHelper.processEventSpecificResponse >>>>>> Event script length >>  '+eventQNArr.length);
-		
+		var ctr = 0;
 		for (var obj in eventQNArr) {
+			ctr++;
 			if (!eventQNArr[obj].processed) {
 				console.log(' LogosHelper.processEventSpecificResponse >>>>>> Event script : event question processed? '+eventQNArr[obj].processed);
 				quest = eventQNArr[obj].eventQuestion;
-				//eventQNArr[obj].processed = true;
+				eventQNArr[obj].processed = true;
 				processEventResponse(eventQNArr[obj], obj, session, callback, retUser)
 				break;
 			} else {
-				if (obj.answer == '') {
-					if (obj.isDictionary !== null && obj.isDictionary.toLowerCase() == 'y') {
+				console.log(' LogosHelper.processEventSpecificResponse >>>>>> Event script : Question processed, into Answer update '+slotValue);
+				
+				if (eventQNArr[obj].answer == '') {
+					if (obj.isDictionary !== null && obj.isDictionary !== undefined && obj.isDictionary.toLowerCase() == 'y') {
 						console.log(' LogosHelper.processEventSpecificResponse : Field is Dictionary type, get ID >>>>>> '+obj.isDictionary);
 						//dbUtil.readDictoinaryId(tempObj, qnObj, obj, slotValue, processor, session, callback);
 						break;
-					} else if (obj.formatId !== null && obj.formatId != "") {
+					} else if (obj.formatId !== null && obj.formatId !== undefined && obj.formatId != "") {
 						console.log(' LogosHelper.processEventSpecificResponse : Field has format ID to format user input >>>>>> '+obj.formatId);
 						//validate user input against RegEx formatter, if error throw response otherwise continue
 						//dbUtil.validateData(tempObj, qnObj, obj, slotValue, processor, session, callback);
 						break;
 					} else {
+						console.log(' LogosHelper.processEventSpecificResponse >>>>>> into final ELSE : Going for update event details ');
 						eventQNArr[obj].answer = slotValue;
 						//make DB call here every time  there is an answer
 						console.log(' LogosHelper.processEventSpecificResponse Found Q answered: skipping to DB for insertion >>>>>> '+eventQNArr[obj].answer);
 						//update answer to database and then take up next question
-						qnaObj.eventQNArr[obj] = eventQNArr;
-						dbUtil.updateSubProfileDetails(qnaObj, session, callback);
+						qnaObj.eventQNArr[ctr] = eventQNArr[obj];
+						dbUtil.updateEventDetails(qnaObj, eventQNArr[obj], slotValue, session, callback);
 						break;
 					}
 				}

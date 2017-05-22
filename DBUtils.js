@@ -114,9 +114,9 @@ exports.updateProfileDetails = function updateProfileDetails(qnaObj, session, ca
  * @public
  * @VG 2/28 | Expects session information as a user response passed here to create a profile
  */
-exports.updateSubProfileDetails = function updateSubProfileDetails(qnaObj, session, callback){
+exports.updateEventDetails = function updateEventDetails(qnaObj, eventQnA, answer, session, callback){
   	console.log(' DBUtils.updateSubProfileDetails >>>>>>'+qnaObj.answer);
-  	setEventDetails(qnaObj, session, callback);
+  	setEventDetails(qnaObj, eventQnA, answer, session, callback);
 };
 
 /**
@@ -249,8 +249,8 @@ function createNewAccountIDFromEmail(vEmail, session, callback, connection)
 }
 
 //VG 5/5|Purpose: Read the answers and Insert/Update the eventDetails table
-function setEventDetails(qnaObj, session, callback) {
-        console.log("DBUtil.setEventDetails for >>>>> "+qnaObj.answer);
+function setEventDetails(qnaObj, eventQnA, answer, session, callback) {
+        console.log("DBUtil.setEventDetails for >>>>> "+answer);
         var connection = getLogosConnection();
         var sessionAttributes = session.attributes;
         
@@ -259,18 +259,21 @@ function setEventDetails(qnaObj, session, callback) {
         
         var logosName = sessionAttributes.logosName;
         var insertRec;
-        var tblName = qnaObj.answertable;
-        var vFields = qnaObj.answerfield;
+        console.log("DBUtil.setEventDetails for >>>>> Answer table "+eventQnA.answerTable);
+        console.log("DBUtil.setEventDetails for >>>>> Answer Field  "+eventQnA.answerField);
+        
+        var tblName = eventQnA.answerTable;
+        var vFields = eventQnA.answerField;
         
         //species, ispetflag = 'Y'
-        if(qnaObj.insertnewrow == 'Y') {
+        if(eventQnA.insertnewrow == 'Y') {
             vFields=vFields.split(","); //This will split based on the comma
             insertRec = "Insert into "+tblName+"(createdby,modifiedby";
             for (var i = 0; i < vFields.length; i++) {
                 console.log('The vField value in: DBUtil.setEventDetails - ' + tblName+' >> and field split '+vFields[i]);
                 insertRec = insertRec+","+vFields[i];
             }
-            insertRec=insertRec+") values('1','1','"+qnaObj.answer+"')";
+            insertRec=insertRec+") values('1','1','"+eventQnA.answer+"')";
             console.log("DBUtil.setEventDetails - Final Insert STMT >> "+insertRec);
             connection = getLogosConnection();
             connection.query(insertRec, function (error, results, fields) {
@@ -282,7 +285,7 @@ function setEventDetails(qnaObj, session, callback) {
 				}
             });
         } else  {   //This is for update
-            var updateRec="Update "+tblName+" Set "+vFields+" ='"+qnaObj.answer+"' Where "+qnaObj.answerKey+"="+profileId; //resArr.answerFieldValue;
+            var updateRec="Update "+tblName+" Set "+vFields+" ='"+answer+"' Where "+eventQnA.answerKeyField+"="+profileId; //resArr.answerFieldValue;
             console.log("DBUtil.setEVENTDetails - Update STMT >> ",updateRec);
             connection = getLogosConnection();
             connection.query(updateRec, function (error, results, fields) {
@@ -292,14 +295,16 @@ function setEventDetails(qnaObj, session, callback) {
 					console.log('The record UPDATED successfully from DBUtil.setEventDetails !!');
 					closeConnection(connection);
 					//insert records into Parent Transcript Array - Staging scripts would redirect to Response process
-					setTranscriptDetailsParent(false, qnaObj, session, callback); 
+					//TODO: write Transaction for events too
+					//setTranscriptDetailsParent(false, qnaObj, session, callback); 
 				}
             });
         }
         //Check if event fuction field is present
-        if (qnaObj.eventFunction!==null){
-            var vEvent = qnaObj.eventFunction.replace("fromprofile","'"+fromProfileID+"'");
+        if (eventQnA.eventFunction!==null & eventQnA.eventFunction != ""){
+            var vEvent = eventQnA.eventFunction.replace("fromprofile","'"+profileId+"'");
             vEvent = vEvent.replace("toprofile","'"+primaryProfileId+"'");
+            vEvent = vEvent.replace("physicalprofileidvalue","'"+eventQnA.answerKeyField+"'");
             console.log('The eventFunction post REPLACE is '+vEvent);
             connection = getLogosConnection();
 	    	connection.query(vEvent,function(error,results,fields) {
@@ -352,7 +357,7 @@ function getEventDetails(qnaObj, session, callback) {
         				"eventFunction":results[res].eventfunction==null?"":results[res].eventfunction,
         				"eventFunVar":results[res].eventfuncionvariables==null?"":results[res].eventfuncionvariables,
         				"answerTable":results[res].answertable==null?"":results[res].answertable,
-        				"answerKeyField":results[res].answerkeyfield==null?"":results[res].answertable,
+        				"answerKeyField":results[res].answerkeyfield==null?"":results[res].answerkeyfield,
         				"answerField":results[res].answerfield==null?"":results[res].answerfield,
         				"isDictionary":results[res].isdictionary==null?"":results[res].isdictionary,
         				"formatId":results[res].formatid==null?"":results[res].formatid,
