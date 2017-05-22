@@ -112,6 +112,15 @@ exports.updateProfileDetails = function updateProfileDetails(qnaObj, session, ca
 
 /**
  * @public
+ * @VG 2/28 | Expects session information as a user response passed here to create a profile
+ */
+exports.updateSubProfileDetails = function updateSubProfileDetails(qnaObj, session, callback){
+  	console.log(' DBUtils.updateSubProfileDetails >>>>>>'+qnaObj.answer);
+  	setEventDetails(qnaObj, session, callback);
+};
+
+/**
+ * @public
  * @VG 3/13 | Manages Profile based script context in STAGING Table
  */
  
@@ -289,8 +298,8 @@ function setEventDetails(qnaObj, session, callback) {
         }
         //Check if event fuction field is present
         if (qnaObj.eventFunction!==null){
-            var vEvent = qnaObj.eventFunction.replace("fromprofile","'"+qnaObj.fromProfileID+"'");
-            vEvent = vEvent.replace("toprofile","'"+qnaObj.toProfileID+"'");
+            var vEvent = qnaObj.eventFunction.replace("fromprofile","'"+fromProfileID+"'");
+            vEvent = vEvent.replace("toprofile","'"+primaryProfileId+"'");
             console.log('The eventFunction post REPLACE is '+vEvent);
             connection = getLogosConnection();
 	    	connection.query(vEvent,function(error,results,fields) {

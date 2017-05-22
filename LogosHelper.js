@@ -499,7 +499,8 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
 						//make DB call here every time  there is an answer
 						console.log(' LogosHelper.processEventSpecificResponse Found Q answered: skipping to DB for insertion >>>>>> '+eventQNArr[obj].answer);
 						//update answer to database and then take up next question
-						//TODO: dbUtil.processEventAnswer();
+						qnaObj.eventQNArr[obj] = eventQNArr;
+						dbUtil.updateSubProfileDetails(qnaObj, session, callback);
 						break;
 					}
 				}
