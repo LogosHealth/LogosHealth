@@ -226,7 +226,11 @@ function setTranscriptDetailsChild(newRec, keyId, qnaObj, session, callback){
     } else {
     	console.log('DBUtil.setTranscriptDetailsChild : No new record is required to insert');
 		if (qnaObj.eventSpecific != null && qnaObj.eventSpecific.toLowerCase() == 'y') {
+			if(qnaObj.eventQNArr !== null && qnaObj.eventQNArr.length >0 && qnaObj.eventQNArr[0].processed) {
+				loadStatusFromStaging(session.attributes.logosName, session.attributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
+			} else {
 				getEventDetails(qnaObj, session, callback);
+			}
 		} else {
 				loadStatusFromStaging(session.attributes.logosName, session.attributes.userProfileId, session.attributes.userHasProfile, session.attributes.profileComplete, session, callback);
 		}
@@ -296,7 +300,7 @@ function setEventDetails(qnaObj, eventQnA, answer, session, callback) {
 					closeConnection(connection);
 					//insert records into Parent Transcript Array - Staging scripts would redirect to Response process
 					//TODO: write Transaction for events too
-					//setTranscriptDetailsParent(false, qnaObj, session, callback); 
+					setTranscriptDetailsParent(false, qnaObj, session, callback); 
 				}
             });
         }
@@ -342,7 +346,7 @@ function getEventDetails(qnaObj, session, callback) {
                 
                 //pull event questions into an array and set them back to QnAObject under session
                 var eventQnaObj = {};
-                var eventObjArr = qnaObj.eventQNArr;
+                var eventObjArr = [];
                 
                 for (var res in results) {
                 	eventQnaObj = {
@@ -587,11 +591,22 @@ function getUniqueIdFromAnswerTable(qnaObj, tableNm, colNm, profileId, session, 
 
 function getDictionaryId(qnaObj, value, processor, session, callback) {
 	console.log("DBUtil.getDictionaryId called to get Dictionary ID for value >>>  "+value);
+	console.log("DBUtil.getDictionaryId called to get Dictionary ID for Question ID >>>  "+qnaObj.questionId);
+	console.log("DBUtil.getDictionaryId called to get Dictionary ID for answerField  >>>  "+qnaObj.answerField);
+	
 	var connection = getLogosConnection();
 	var dictId = "";
-	var fields = qnaObj.answerField.split(",");
-	var field = fields[fields.length-1];
+	var fields = qnaObj.answerField === null?"":qnaObj.answerField.split(",");
+	var field = "";
+	
 	var query = "SELECT dictionaryid FROM logoshealth.dictionary WHERE fieldname = '"+field.trim()+"' and (value = '"+value+"' OR dictionarycode = '"+value+"' )";
+	
+	if (fields != "") {
+		field = fields[fields.length-1];
+	} else {
+		query = "SELECT * FROM logoshealth.dictionary WHERE questionid = "+qnaObj.questionId+" and (value = '"+value+"')";
+	}
+	
 	console.log("DBUtil.getDictionaryId Select Query is >>> "+query);
 	
 	connection.query(query, function (error, results, fields) {
@@ -606,7 +621,11 @@ function getDictionaryId(qnaObj, value, processor, session, callback) {
        			qnaObj.answer = dictId;
     			console.log(' DBUtil.getDictionaryId Found: Set Dictionary Id to temp and QnA Objects >>>>>> '+qnaObj.answer);
     			closeConnection(connection);
-    			setProfileDetails(qnaObj, session, callback);
+    			if (qnaObj.eventSpecific != "" && qnaObj.eventSpecific.toLowerCase() == 'y') {
+    				getEventDetails(qnaObj, session, callback);
+    			} else {
+    				setProfileDetails(qnaObj, session, callback);
+    			}
             } else {
             	console.log("DBUtil.getDictionaryId - RegEx threw error for user input >>>> "+qnaObj.errResponse);
     			//process error response
@@ -756,10 +775,8 @@ function getUserProfileByName(userName, accountId, session, callback) {
 		// if not bring QnA object with current or last save point and respond. 
         if (profileComplete) {
         	helper.processNameIntent(userName, profileId, hasProfile, profileComplete, session, callback);
-        } else if(!hasProfile) {
-        	checkIfAccountHasAnyPrimaryProfile(userName, profileId, hasProfile, accountId, profileComplete, session, callback);
         } else {
-        	loadStatusFromStaging(userName, profileId, hasProfile, profileComplete, session, callback);
+        	checkIfAccountHasAnyPrimaryProfile(userName, profileId, hasProfile, accountId, profileComplete, session, callback);
         }
     });
 }
@@ -794,7 +811,11 @@ function checkIfAccountHasAnyPrimaryProfile(userName, profileId, hasProfile, acc
         session.attributes.primaryProfileId = primaryProfileId;
         
         //process user response
-        helper.processNameIntent(userName, profileId, hasProfile, profileComplete, session, callback);
+        if (!hasProfile) {
+        	helper.processNameIntent(userName, profileId, hasProfile, profileComplete, session, callback);
+        } else {
+        	loadStatusFromStaging(userName, profileId, hasProfile, profileComplete, session, callback);
+        }
     });
 }
 

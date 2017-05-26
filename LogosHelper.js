@@ -265,6 +265,7 @@ function processIntent(event, context, intentRequest, session, callback) {
     }
     else if (intentName == 'AMAZON.NoIntent')  {   
     	console.log(' AMAZON.NoIntent: Intent  called >>>>>>  '+intentName);
+    	slotValue = "no";
         //user choose to say NO, send him to the main menu for Demo
         processNameIntentResponse(sessionAttributes.logosName, sessionAttributes.userProfileId, true, false, session, callback);
     }
@@ -489,18 +490,19 @@ function executeCreateProfileQNA(slotValue, qnaObj, session, callback) {
 				console.log(' LogosHelper.processEventSpecificResponse >>>>>> Event script : Question processed, into Answer update '+slotValue);
 				
 				if (eventQNArr[obj].answer == '') {
-					if (obj.isDictionary !== null && obj.isDictionary !== undefined && obj.isDictionary.toLowerCase() == 'y') {
-						console.log(' LogosHelper.processEventSpecificResponse : Field is Dictionary type, get ID >>>>>> '+obj.isDictionary);
-						//dbUtil.readDictoinaryId(tempObj, qnObj, obj, slotValue, processor, session, callback);
+					if (eventQNArr[obj].isDictionary !== null && eventQNArr[obj].isDictionary !== undefined && eventQNArr[obj].isDictionary.toLowerCase() == 'y') {
+						console.log(' LogosHelper.processEventSpecificResponse : Field is Dictionary type, get ID >>>>>> '+eventQNArr[obj].isDictionary);
+						dbUtil.readDictoinaryId(eventQNArr[obj], qnaObj, obj, slotValue, processor, session, callback);
 						break;
-					} else if (obj.formatId !== null && obj.formatId !== undefined && obj.formatId != "") {
-						console.log(' LogosHelper.processEventSpecificResponse : Field has format ID to format user input >>>>>> '+obj.formatId);
+					} else if (eventQNArr[obj].formatId !== null && eventQNArr[obj].formatId !== undefined && eventQNArr[obj].formatId != "") {
+						console.log(' LogosHelper.processEventSpecificResponse : Field has format ID to format user input >>>>>> '+eventQNArr[obj].formatId);
 						//validate user input against RegEx formatter, if error throw response otherwise continue
-						//dbUtil.validateData(tempObj, qnObj, obj, slotValue, processor, session, callback);
+						dbUtil.validateData(eventQNArr[obj], qnaObj, obj, slotValue, processor, session, callback);
 						break;
 					} else {
 						console.log(' LogosHelper.processEventSpecificResponse >>>>>> into final ELSE : Going for update event details ');
 						eventQNArr[obj].answer = slotValue;
+						eventQNArr[obj].processed = true;
 						//make DB call here every time  there is an answer
 						console.log(' LogosHelper.processEventSpecificResponse Found Q answered: skipping to DB for insertion >>>>>> '+eventQNArr[obj].answer);
 						//update answer to database and then take up next question
