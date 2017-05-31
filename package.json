@@ -1,7 +1,7 @@
 { "name" : "DBUtils",
-  "main" : "./utils/DBUtils.js" 
+  "DBUtils" : "./utils/DBUtils.js" 
 }
 
 { "name" : "LogosHelper",
-  "main" : "./utils/LogosHelper.js" 
+  "LogosHelper" : "./utils/LogosHelper.js" 
 }
