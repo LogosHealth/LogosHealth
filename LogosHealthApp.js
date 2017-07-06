@@ -2,6 +2,8 @@
 
 var dbUtil = require('./utils/DBUtils');
 var helper = require('./utils/LogosHelper');
+var deepstream = require('./utils/DeepstreamUtils');
+
 var request = require('request');
 
 // --------------- Functions that control the skill's behavior -----------------------
@@ -41,8 +43,19 @@ function handleSessionEndRequest(callback) {
 /**
  * Called when the session starts.
  */
-function onSessionStarted(event, sessionStartedRequest, session) {
+function onSessionStarted(event, sessionStartedRequest, context, session, callback) {
     console.log('onSessionStarted requestId=${sessionStartedRequest.requestId}, sessionId=${session.sessionId}');
+    /* SM: Deep stream harness test call, TODO: remove it once Deepstream integrated with DBUtils
+    
+    console.log('Test harness : verifying deepstream object instance >>>>> ');
+    
+    var dat = { "recordname": "firstname582",
+    			"data": "Bob"
+    		  }
+    deepstream.verifyDeepstreamObj();
+    deepstream.getDeepStreamConnection(dat, context, callback);
+    */
+    
 }
 
 function onSessionEnded(sessionEndedRequest, session) {
@@ -55,11 +68,17 @@ exports.handler = (event, context, callback) => {
         
         if (event.session.new) {           
             console.log('New Session created >>>>>');
-            onSessionStarted(event,{ requestId: event.request.requestId }, event.session);
+            onSessionStarted(event,{ requestId: event.request.requestId }, context, event.session,  
+            		(sessionAttributes, speechletResponse) => {
+                        callback(null, helper.buildResponse(sessionAttributes, speechletResponse));
+                    });
+            /*
             onLaunch(event,event.request,event.session,
                     (sessionAttributes, speechletResponse) => {
                         callback(null, helper.buildResponse(sessionAttributes, speechletResponse));
                     });
+                    
+                    */
         } else {
         
             if (event.request.type === 'LaunchRequest') {
