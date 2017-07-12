@@ -8,7 +8,7 @@
 //global variables
 var mysql = require('mysql');
 var helper = require('./LogosHelper');
-var deepstream = require('./utils/DeepstreamUtils');
+var deepstream = require('./DeepstreamUtils');
 
 /**
  * Create a new Connection instance.
@@ -148,6 +148,11 @@ exports.setScriptContext = function setScriptContext(profileID, scriptID, script
 exports.addDietRecord = function addDietRecord(intent, session, callback) {
   	//console.log(' DBUtils.setScriptContext >>>>>>');
   	processAddDiet(intent, session, callback);
+};
+ 
+ exports.setTranscriptParentDetails = function setTranscriptParentDetails(newRec, qnaObj, session, callback) {
+  	//console.log(' DBUtils.setTranscriptParentDetails >>>>>>');
+  	setTranscriptDetailsParent(newRec, qnaObj, session, callback);
  };
 
  
@@ -962,7 +967,7 @@ function setDeepStream(qnaObj,session, callback)
  	
  	//send eventData, context, callback, qnaObj, & session
  	//deepstream once update expected to callback DBUtil staging method, so params are required
- 	deepstream.getDeepStreamConnection(eventData, qnaObj, context, callback);
+ 	deepstream.getDeepStreamConnection(eventData, qnaObj, session, callback);
  }
 
 //VG 2/28|Purpose: Read the answers and Insert/Update the Profile

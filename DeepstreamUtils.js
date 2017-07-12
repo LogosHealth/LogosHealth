@@ -54,7 +54,7 @@ function openDeepstreamChannel(event, qnaObj,session, callback) {
                     console.log('Record set without error');
                     client.close();
                     //Callback DB Util for the next set of action
-                    dbUtil.setTranscriptDetailsParent(false, qnaObj, session, callback); 
+                    dbUtil.setTranscriptParentDetails(false, qnaObj, session, callback); 
                 }
             });
 
