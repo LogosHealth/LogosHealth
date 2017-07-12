@@ -17,9 +17,9 @@ const deepstream = require('deepstream.io-client-js');
  * @return True/False
  * @public
  */
-exports.getDeepStreamConnection = function getDeepStreamConnection(event, context, callback) {
+exports.getDeepStreamConnection = function getDeepStreamConnection(event, qnaObj, session, callback) {
   	//console.log(' DBUtils.getDBConnection >>>>>>');
-    return openDeepstreamChannel(event, context, callback);
+    return openDeepstreamChannel(event, qnaObj, session, callback);
 };
 
 /**
@@ -33,7 +33,7 @@ exports.verifyDeepstreamObj = function verifyDeepstreamObj() {
     return verifyDeepstreamObjMsg();
 };
 
-function openDeepstreamChannel(event, context, callback) {
+function openDeepstreamChannel(event, qnaObj,session, callback) {
 	console.log(' DeepstreamUtils.openDeepstreamChannel >>>>>>');
 	
 	const client = deepstream('wss://logos.healthcare:6020');
@@ -53,7 +53,8 @@ function openDeepstreamChannel(event, context, callback) {
                 } else {
                     console.log('Record set without error');
                     client.close();
-                    callback(null);
+                    //Callback DB Util for the next set of action
+                    dbUtil.setTranscriptDetailsParent(false, qnaObj, session, callback); 
                 }
             });
 

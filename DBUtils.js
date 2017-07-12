@@ -949,9 +949,11 @@ function setDeepStream(qnaObj,session, callback)
  * @return True/False
  * @public
  */
- function channelDataToDeepstream(qnaObj, context, session, callback) {
+ function channelDataToDeepstream(qnaObj, session, callback) {
+ 	console.log('DBUtil.channelDataToDeepstream method called - >>>>>');
  	var recordNm = qnaObj.answerField+session.attributes.tableId;
  	var dataVal = qnaObj.answer;
+ 	console.log('DBUtil.channelDataToDeepstream the record name is '+recordNm+' and the record value is '+dataVal);
  	
  	var eventData = {
  		"recordname": recordNm,
@@ -960,7 +962,7 @@ function setDeepStream(qnaObj,session, callback)
  	
  	//send eventData, context, callback, qnaObj, & session
  	//deepstream once update expected to callback DBUtil staging method, so params are required
- 	deepstream.getDeepStreamConnection(eventData, context, callback);
+ 	deepstream.getDeepStreamConnection(eventData, qnaObj, context, callback);
  }
 
 //VG 2/28|Purpose: Read the answers and Insert/Update the Profile
@@ -1092,8 +1094,9 @@ function saveAnswer(qnaObj, session, callback) {
                                     } else {
                                         console.log('The record UPDATED successfully SaveData');
                                         closeConnection(connection);
+                                        //TODo: Call deeptstreadm update field
                                         //insert records into Parent Transcript Array - Staging scripts would redirect to Response process
-                                        setTranscriptDetailsParent(false, qnaObj, session, callback);  
+                                        channelDataToDeepstream(qnaObj, session, callback);
                                     }
                                 });	
 							} else {
