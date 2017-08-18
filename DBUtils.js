@@ -417,6 +417,7 @@ function getStagingParentId(newRec, qnaObj, session, callback) {
 //VG 2/25|Purpose: Insert a new Account Information in DB
 function createNewAccountIDFromEmail(vEmail, session, callback, connection)
 {
+    var connection = getLogosConnection();
 	var accountRec = {email:vEmail, password:'vgtiger',createdby:'1',modifiedby:'1'};
 	connection.query('Insert into logoshealth.Account Set ?',accountRec, function (error, results, fields) {
 	if (error) {
@@ -829,7 +830,7 @@ function getScriptDetails(questionId, scriptName, slotValue, session, callback, 
     else {
         vSQL="SELECT q.*,s.* FROM logoshealth.script s, logoshealth.question q where s.questionid=q.questionid and scriptname='"+scriptName+"' and uniquestepid="+questionId;    
     }
-    //console.log("DBUtil.getScriptDetails Query is  >>>>> " +vSQL);
+    console.log("DBUtil.getScriptDetails Query is  >>>>> " +vSQL);
 
 	connection.query(vSQL, function (error, results, fields) {	
     	var qnaObj = {};
@@ -954,20 +955,22 @@ function setDeepStream(qnaObj,session, callback)
  * @return True/False
  * @public
  */
- function channelDataToDeepstream(qnaObj, session, callback) {
+ function channelDataToDeepstream(qnaObj, isInsert, session, callback) {
  	console.log('DBUtil.channelDataToDeepstream method called - >>>>>');
  	var recordNm = qnaObj.answerField+session.attributes.tableId;
  	var dataVal = qnaObj.answer;
+	
  	console.log('DBUtil.channelDataToDeepstream the record name is '+recordNm+' and the record value is '+dataVal);
  	
  	var eventData = {
  		"recordname": recordNm,
-    	"data": dataVal
+    	"data": dataVal,
+		"email": session.attributes.accountEmail
  	};
  	
  	//send eventData, context, callback, qnaObj, & session
  	//deepstream once update expected to callback DBUtil staging method, so params are required
- 	deepstream.getDeepStreamConnection(eventData, qnaObj, session, callback);
+ 	deepstream.getDeepStreamConnection(eventData, isInsert, qnaObj, session, callback);
  }
 
 //VG 2/28|Purpose: Read the answers and Insert/Update the Profile
@@ -1050,7 +1053,7 @@ function saveAnswer(qnaObj, session, callback) {
 						  }	
 						  console.log('DBUtil.saveAnswer - FINAL INSERT SQL: ', insertSQL);
 						  //console.log('DBUtil.saveAnswer - tblName: ', tblName);
-						  var insertStart = 'Insert into logoshealth.' + tblName + ' Set ?';
+						  var insertStart = "Insert into logoshealth." + tblName + " Set ?";
 						  //console.log('DBUtil.saveAnswer - insertStart : ' + insertStart);
 						  connection = getLogosConnection();
                           connection.query(insertStart, insertSQL, function (error, results, fields) {
@@ -1080,7 +1083,9 @@ function saveAnswer(qnaObj, session, callback) {
 								}  else if  (tblName == 'medicalevent') {
 									sessionAttributes.medicaleventid = results.insertId;
 								}
-								setTranscriptDetailsParent(true, qnaObj, session, callback);  //insert records into Parent Transcript Array
+                                //channelDataToDeepstream(qnaObj, true, session, callback);
+								//setTranscriptDetailsParent(true, qnaObj, session, callback);  //insert records into Parent Transcript Array
+								setConversation(qnaObj, true, session,callback);
                               }
                          	});
                        } else { //insertRow != Yes hence execute update
@@ -1101,7 +1106,9 @@ function saveAnswer(qnaObj, session, callback) {
                                         closeConnection(connection);
                                         //TODo: Call deeptstreadm update field
                                         //insert records into Parent Transcript Array - Staging scripts would redirect to Response process
-                                        channelDataToDeepstream(qnaObj, session, callback);
+										
+                                        //channelDataToDeepstream(qnaObj, false, session, callback);
+                                        setConversation(qnaObj,false, session,callback);
                                     }
                                 });	
 							} else {
@@ -1397,6 +1404,9 @@ function loadUserAccounts() {
 //Load Account ID based on Email registered with the Alexa
 function loadAccountIDFromEmail(email, session, callback) {
 	console.log("DBUtil.getAccountFromEmail called with param >>>>> "+email);
+	console.log("Session Attributes >>>>> ", session.attributes);
+	
+	//session.attributes.accountEmail = email;
 	var connection = getLogosConnection();
 	var accountid = "";
 	connection.query("SELECT accountid FROM logoshealth.Account where email = '"+ email + "'" , function (error, results, fields) {
@@ -1410,7 +1420,7 @@ function loadAccountIDFromEmail(email, session, callback) {
                 for (var res in results) {
                     console.log('DBUtils - Email found from account table >>>> : ', results[res]);
                     accountid = results[res].accountid;
-                    helper.displayWelcomeMsg(accountid, session, callback);
+                    helper.displayWelcomeMsg(accountid, email, session, callback);
 				    console.log('DBUtils - AccountID from email inside loop>>> : ', accountid);
                 }
 				connection.end();
@@ -1829,11 +1839,21 @@ function checkIfAccountHasAnyPrimaryProfile(userName, profileId, hasProfile, acc
 			helper.callRestart(sessionAttributes.accountid, errResponse, session, callback);
         } else {
             if (results !== null && results.length > 0) {
-                console.log("DBUtil.getUserProfileByName : Main account do not have any account listed, which mean its primary account >>>>>"+results[0].logosname);
-                isPrimary = false;
-                primaryFirstName = results[0].firstname;
-                primaryProfileId = results[0].profileid;
-            }
+				if (results[0].profileid == profileId) {
+					console.log("DBUtil.getUserProfileByName : Profiled ID matches primary - primary account >>>>>"+results[0].logosname);
+                	isPrimary = true;
+                	primaryFirstName = results[0].firstname;
+                	primaryProfileId = results[0].profileid;
+				} else {
+					console.log("DBUtil.getUserProfileByName : Profiled ID does not match primary - primary account >>>>>"+results[0].logosname);
+                	isPrimary = false;
+                	primaryFirstName = results[0].firstname;
+                	primaryProfileId = results[0].profileid;					
+				}
+			} else {
+				console.log("DBUtil.getUserProfileByName : No primary profile found for account.  set current user to primary - primary account >>>>>"+userName);
+                isPrimary = true;
+			}
         }
         connection.end();
         session.attributes.isPrimaryProfile = isPrimary;
@@ -1859,6 +1879,8 @@ function loadProfileCreateContinueFromStaging(userName, profileId, hasProfile, p
     var retUser = false;
     // Get max available question id from staging using profile id
     //if no record found that mean user to start with First Question else max +1 question onwards
+	console.log('DBUtil.loadProfileCreateContinueFromStaging - Profiled ID = '+profileId);
+	
 	var sqlQuery = "select s.uniquestepid as uniquestepid, s.stg_scriptid, s.complete from logoshealth.stg_script s, logoshealth.stg_records r where s.stg_scriptid = r.stg_scriptid and r.table = 'profile' and r.recordid = "+profileId;
     connection.query(sqlQuery, function (error, results, fields) {
 	if (error) {
@@ -1867,9 +1889,10 @@ function loadProfileCreateContinueFromStaging(userName, profileId, hasProfile, p
 		var errResponse = "There is an error in processing this request.  If it continues, please contact app support and say error in loadProfileCreateContinueFromStaging.  Restarting LogosHealth.  Please say your first name.";
 		helper.callRestart(sessionAttributes.accountid, errResponse, session, callback);
     } else {
-		//console.log('DBUtil.loadProfileCreateContinueFromStaging - The Staging Question ID found as '+results[0].uniquestepid);
+		console.log('DBUtil.loadProfileCreateContinueFromStaging - The Staging Question ID found as '+results[0].uniquestepid);
+		console.log('DBUtil.loadProfileCreateContinueFromStaging - The Staging Complete found as '+results[0].complete);
 		if (results.length > 0) {
-			if(results[0].complete = 'Y') {
+			if(results[0].complete == 'Y') {
 				questionId = results[0].uniquestepid - 1;
 			} else {
 				questionId = results[0].uniquestepid + 1;				
@@ -1891,6 +1914,61 @@ function loadProfileCreateContinueFromStaging(userName, profileId, hasProfile, p
     getScriptDetails(questionId, scriptName, userName, session, callback, retUser);
 	});
 }
+
+//VG 06/10|| Purpose - Capture raw conversation
+function setConversation(qnaObj,flag, session,callback)
+{
+    console.log("DBUtil.setConversation called and vSQL:");
+    var vTranscript;
+    var connection = getLogosConnection();
+    
+    //Check if for a given profile and script, record in place or not
+    var vSQL = "SELECT transcriptid, scriptid, transcript FROM logoshealth.transcript where scriptid in (Select scriptid from logoshealth.script where scriptname='"+ qnaObj.scriptname +"') and profileid="+qnaObj.userProfileId;
+    console.log("DBUtil.setConversation called and vSQL:"+vSQL);
+    connection.query(vSQL, function (error, results, fields){
+    	if (error) {
+			console.log('The Error is: ', error);
+		} else 
+        {
+            console.log('No Errors and Result is >>'+results.length);
+            if (results[0].scriptid == null)
+            {
+                //Get the scriptid for INSERT
+                vSQL = "Select scriptid from logoshealth.script where scriptname='"+qnaObj.scriptname+"'";
+                connection.query(vSQL, function (error, results, fields) {
+                	if (error){
+                    	console.log('The Error is: in selecting scriptid>>', error);
+                	} else
+                  	{ 
+                    	var vScriptId = results[0].scriptid;
+                  	}
+                });
+                vTranscript = qnaObj.uniqueStepId+"-"+qnaObj.answer+"|";
+                vSQL = {profileid:qnaObj.userProfileId, scriptid:vScriptId,transcript:vTranscript,createdby:profileId,modifiedby:profileId};
+                // 1. Insert into Transcript table
+                connection.query('Insert into logoshealth.transcript Set ?',vSQL, function (error, results, fields) {
+                	if (error) 
+                	{
+			         	console.log('The Error is: in insert into transcript>>', error);
+		        	} 
+		        });//insert ends here
+            } else {
+                vTranscript = results[0].transcript+qnaObj.uniqueStepId+"-"+qnaObj.answer+"|";  
+                vSQL = "Update logoshealth.transcript set transcript = vTranscript Where transcriptid="+results[0].transcriptid;
+                connection.query(vSQL, function (error, results, fields){
+                	if (error) {
+			         	console.log('The Error is: ', error);
+		        	} else
+                    {
+                        console.log('The transcript record updated successfully!!');
+					    closeConnection(connection); //all is done so releasing the resources
+					    channelDataToDeepstream(qnaObj, flag, session, callback);
+                    }
+                });
+            }
+        }
+    });//Very first if, check whether record exists in transcript table or not, closes here
+}//function setConversation ends here
 
 function closeConnection(connection) {
 	connection.end();
