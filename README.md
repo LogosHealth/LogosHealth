@@ -25,5 +25,13 @@ https://github.com/ionic-team/starters/tree/master/ionic-angular/official/aws
 
 https://dashboard.ionicjs.com/app/af331d91/code/builds/list
 
+[Browse on Ionic DevApp on your phone]
+[Validate AWS database backend]
 
-## Configure ionic pro client
+## Publish test [app] in ionic dashboard
+
+[Browse on Ionic View on your phone]
+
+
+## Make changes to test [app] and review changes
+
