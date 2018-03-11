@@ -6,6 +6,7 @@ https://ionicframework.com/docs/pro/devapp/
 > Install Node.js https://nodejs.org/en/
 
 > Terminal run: sudo npm install -g cordova ionic
+
 > Terminal run: sudo npm install -g awsmobile-cli
 ## Start test [app] on local machine
 https://ionicframework.com/getting-started
