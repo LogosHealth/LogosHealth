@@ -76,16 +76,18 @@ You should be able to:
 
 * See AwsDemoApp in your ionic account dashboard
 
-## Publish test [app] in ionic dashboard
+## Publish [ion template pro] app in ionic dashboard
 
-[Browse on Ionic View on your phone]
+In app directory:
 
-Next Steps:
-* Go to your newly created project: cd ./AwsDemoApp
-* Get Ionic DevApp for easy device testing: https://bit.ly/ionic-dev-app
-* Finish setting up Ionic Pro Error Monitoring: https://ionicframework.com/docs/pro/monitoring/#getting-started
-* Finally, push your code to Ionic Pro to perform real-time updates, and more: git push ionic master
+`ionic link`
+When prompt, choose to link the app to a different app id.
+Give app a new name: IonTplDeploy
 
+`git push ionic master`
 
-## Make changes to test [app] and review changes
+Follow the instrictions in your ionic account dashboard, app view, to deploy the app to master channel
 
+You should be able to:
+
+* View the app in Ionic **View **
