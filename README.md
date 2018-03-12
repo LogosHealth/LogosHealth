@@ -82,6 +82,10 @@ You should be able to:
 
 In app directory:
 
+`npm install`
+
+`npm run build`
+
 `ionic link`
 When prompt, choose to link the app to a different app id.
 Give app a new name: IonTplDeploy
