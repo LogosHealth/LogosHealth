@@ -90,4 +90,4 @@ Follow the instrictions in your ionic account dashboard, app view, to deploy the
 
 You should be able to:
 
-* View the app in Ionic **View **
+* View the app in Ionic **View**
