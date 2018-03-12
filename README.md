@@ -84,10 +84,16 @@ In app directory:
 When prompt, choose to link the app to a different app id.
 Give app a new name: IonTplDeploy
 
-`git push ionic master`
+* package.json changes are needed to ensure the build's success. Use app dir checked in this branch*
+
+`git add . &&  git commit -a -m "Initial commit" && git push ionic master`
 
 Follow the instrictions in your ionic account dashboard, app view, to deploy the app to master channel
 
 You should be able to:
 
 * View the app in Ionic **View**
+
+## Deploy [ion template pro] app on AWS and Pulish build package in ionic dashboard
+
+
