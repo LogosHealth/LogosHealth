@@ -98,6 +98,19 @@ You should be able to:
 
 ## Deploy [ion template pro] app on AWS and Pulish build package in ionic dashboard
 
+Go to app dir
+`awsmobile init`
 
+`rm -rf www node_modules`
+
+`npm install`
+
+`npm run build`
+
+`awsmobile publish`
+
+`ionic link` select link to a different app
+
+`git add . &&  git commit -a -m "Initial commit" && git push ionic master`
 
 
