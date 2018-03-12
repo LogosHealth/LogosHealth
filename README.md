@@ -8,6 +8,8 @@
 
 * Reference 4: <https://dashboard.ionicjs.com/app/af331d91/code/builds/list>
 
+* Reference 5: <https://ionicframework.com/docs/intro/deploying/>
+
 ## Pre-requisites
 * Install Node
   `https://nodejs.org/en/`
