@@ -56,15 +56,35 @@
   
 `awsmobile run`
 
-[Browse app in your web browser]
+You should be able to:
 
-[Browse on Ionic DevApp on your phone]
+* Browse on Ionic DevApp on your phone (Your phone and your machine need to be one same network)
 
-[Validate AWS database backend]
+* Browse app in web browser (an browser tab should be opened automatically displaying login page)
+
+`npm run build`
+
+`awsmobile publish`
+
+You should be able to:
+
+* Browse web app using S3 endpoint provided in the terminal window
+
+`git push ionic master`
+
+You should be able to:
+
+* See AwsDemoApp in your ionic account dashboard
 
 ## Publish test [app] in ionic dashboard
 
 [Browse on Ionic View on your phone]
+
+Next Steps:
+* Go to your newly created project: cd ./AwsDemoApp
+* Get Ionic DevApp for easy device testing: https://bit.ly/ionic-dev-app
+* Finish setting up Ionic Pro Error Monitoring: https://ionicframework.com/docs/pro/monitoring/#getting-started
+* Finally, push your code to Ionic Pro to perform real-time updates, and more: git push ionic master
 
 
 ## Make changes to test [app] and review changes
