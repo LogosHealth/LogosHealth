@@ -52,7 +52,7 @@
 
 `awsmobile database configure`
 
-  * follow instruction: [readme] (https://github.com/ionic-team/starters/tree/master/ionic-angular/official/aws#creating-aws-mobile-hub-project) configure database section
+  * follow instruction: [readme](https://github.com/ionic-team/starters/tree/master/ionic-angular/official/aws#creating-aws-mobile-hub-project) configure database section
   
 `awsmobile run`
 
