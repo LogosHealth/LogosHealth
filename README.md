@@ -1,22 +1,21 @@
 # Ionic App Deploy Manual
 
-*Reference 1: <https://ionicframework.com/getting-started>
+* Reference 1: <https://ionicframework.com/getting-started>
 
-*Reference 2: <https://ionicframework.com/docs/pro/devapp/>
+* Reference 2: <https://ionicframework.com/docs/pro/devapp/>
 
-*Reference 3: <https://github.com/ionic-team/starters/tree/master/ionic-angular/official/aws>
+* Reference 3: <https://github.com/ionic-team/starters/tree/master/ionic-angular/official/aws>
 
-*Reference 4: <https://dashboard.ionicjs.com/app/af331d91/code/builds/list>
+* Reference 4: <https://dashboard.ionicjs.com/app/af331d91/code/builds/list>
 
 ## Pre-requisites
 * Install Node
-
-  `.js https://nodejs.org/en/`
+  `https://nodejs.org/en/`
 
 * Install clis:
-  `Terminal run: sudo npm install -g cordova ionic`
-
-  `Terminal run: sudo npm install -g awsmobile-cli`
+  `sudo npm install -g cordova ionic`
+  and
+  `sudo npm install -g awsmobile-cli`
 
 * Download 'Ionic View' and 'Ionic DevApp' from app store
 
@@ -27,19 +26,35 @@
 * Serve app using default setting
   `ionic serve -c`
 
-* Browse on Ionic DevApp on your phone (Your phone and your machine need to be one same network
+* Browse on Ionic DevApp on your phone (Your phone and your machine need to be one same network)
 
-## Start aws demo [app] on aws
+## Start aws demo [AwsDemoApp] on aws
 
-> ionic start app aws
+`ionic start AwsDemoApp aws` 
 
-> cd ./app
+  * follow prompt instruction 
 
-> awsmobile init
+  * app name: AwsDemoApp
 
-[Run app locally]
+  * select y on all y/n questions
 
-> awsmobile run
+`cd ./AwsDemoApp`
+
+`awsmobile init`
+
+  * follow prompt instruction 
+
+  * use default setting when prompted, **EXCEPT**
+
+    * use IAM user ionic-deploy, secret 4WuwtGTMZv77e1agN8yUwITekt0rDzV2uf/oZiCD
+
+`awsmobile features` (select all)
+
+`awsmobile database configure`
+
+  * follow instruction: [readme] (https://github.com/ionic-team/starters/tree/master/ionic-angular/official/aws#creating-aws-mobile-hub-project) configure database section
+  
+`awsmobile run`
 
 [Browse app in your web browser]
 
