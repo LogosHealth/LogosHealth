@@ -1,7 +1,0 @@
-{ "name" : "DBUtils",
-  "DBUtils" : "./utils/DBUtils.js" 
-}
-
-{ "name" : "LogosHelper",
-  "LogosHelper" : "./utils/LogosHelper.js" 
-}
