@@ -25,6 +25,12 @@
 
 * download app zip file, unzip, cd into content
 
+`rm -rf www node_modules
+
+npm install
+
+npm run build`
+
 * Serve app using default setting
   `ionic serve -c`
 
